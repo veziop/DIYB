@@ -8,3 +8,4 @@ This project is built with these technologies:
 + Python 3.10
 + FastAPI
 + sqlite3
++ SQLAlchemy
