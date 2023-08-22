@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field
 from starlette import status
 
@@ -28,3 +28,11 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
     transaction_model = Transaction(**transaction_request.dict())
     db.add(transaction_model)
     db.commit()
+
+
+@router.get('/get/{transaction_id}', status_code=status.HTTP_200_OK)
+async def get_one_transaction(db: db_dependency, transaction_id: int = Path(gt=0)):
+    transaction_model = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    if transaction_model:
+        return transaction_model
+    raise HTTPException(status_code=404, detail='Transaction not found')
