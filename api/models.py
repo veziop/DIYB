@@ -1,11 +1,13 @@
 from database import Base
 from sqlalchemy import Column, Integer, Float, String, DateTime, ForeignKey
 
+
 class Transaction(Base):
     __tablename__ = 'transaction'
     id = Column(Integer, primary_key=True, index=True)
     payee = Column(String)
-    datetime = Column(DateTime)
+    creation_date = Column(DateTime)
+    transaction_date = Column(DateTime)
     description = Column(String)
     amount = Column(Float)
 
