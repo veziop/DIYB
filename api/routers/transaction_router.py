@@ -1,3 +1,9 @@
+"""
+filename: transaction_router.py
+author: Valentin Piombo
+email: valenp97@gmail.com
+description: Module for the definitions of routes related to the Transaction model.
+"""
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Path
@@ -10,6 +16,7 @@ from models import Transaction
 router = APIRouter(prefix='/transactions')
 
 
+# Data verification using pydantic
 class TransactionModel(BaseModel):
     payee: str = Field(min_length=2)
     creation_date: datetime = Field(default=datetime.now())

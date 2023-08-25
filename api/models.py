@@ -1,3 +1,9 @@
+"""
+filename: models.py
+author: Valentin Piombo
+email: valenp97@gmail.com
+description: Module for the definitions all the project's models.
+"""
 from database import Base
 from sqlalchemy import Column, Integer, Float, String, DateTime, ForeignKey
 

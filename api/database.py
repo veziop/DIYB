@@ -1,3 +1,9 @@
+"""
+filename: database.py
+author: Valentin Piombo
+email: valenp97@gmail.com
+description: Module for everything database/engine/sessions related.
+"""
 from typing import Annotated
 
 from fastapi import Depends

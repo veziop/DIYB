@@ -1,3 +1,9 @@
+"""
+filename: main.py
+author: Valentin Piombo
+email: valenp97@gmail.com
+description: Project's root module.
+"""
 from fastapi import FastAPI
 
 from database import engine
