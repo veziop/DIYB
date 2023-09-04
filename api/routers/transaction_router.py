@@ -4,7 +4,8 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definitions of routes related to the Transaction model.
 """
-from datetime import datetime
+from datetime import datetime, date
+from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field
@@ -18,10 +19,10 @@ router = APIRouter(prefix="/transactions")
 
 # Data verification using pydantic
 class TransactionRequest(BaseModel):
-    payee: str = Field(min_length=2)
-    transaction_date: datetime = Field(default=datetime.now())
-    description: str = Field(min_length=2, max_length=100)
-    amount_cents: int = Field()
+    payee: str = Field(min_length=1)
+    transaction_date: date = Field(default=date.today())
+    description: str = Field(max_length=100)
+    amount: Decimal = Field(decimal_places=2)
 
 
 @router.get("/all", status_code=status.HTTP_200_OK)
@@ -31,8 +32,10 @@ async def read_all_transactions(db: db_dependency):
 
 @router.post("/create", status_code=status.HTTP_201_CREATED)
 async def create_new_transaction(db: db_dependency, transaction_request: TransactionRequest):
-    transaction_model = Transaction(**transaction_request.dict())
-    transaction_model.amount_whole = transaction_request.amount_cents / 100
+    transaction_request_data = transaction_request.dict()
+    transaction_request_data["creation_datetime"] = datetime.now().replace(microsecond=0)
+    transaction_request_data["last_update_datetime"] = datetime.now().replace(microsecond=0)
+    transaction_model = Transaction(**transaction_request_data)
     db.add(transaction_model)
     db.commit()
 
@@ -56,8 +59,8 @@ async def update_one_transaction(
         raise HTTPException(status_code=404, detail="Transaction not found")
     transaction_model.payee = transaction_request.payee
     transaction_model.transaction_date = transaction_request.transaction_date
+    transaction_model.last_update_datetime = datetime.now().replace(microsecond=0)
     transaction_model.description = transaction_request.description
-    transaction_model.amount_cents = transaction_request.amount_cents
-    transaction_model.amount_whole = transaction_request.amount_cents / 100
+    transaction_model.amount = transaction_request.amount
     db.add(transaction_model)
     db.commit()
