@@ -12,7 +12,8 @@ from pydantic import BaseModel, Field
 from starlette import status
 
 from database import db_dependency
-from models import Transaction
+from models import Transaction, Balance
+from .balance_router import create_balance_entry
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -42,10 +43,16 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
     transaction_request_data = transaction_request.dict()
     transaction_request_data["creation_datetime"] = datetime.now().replace(microsecond=0)
     transaction_request_data["last_update_datetime"] = datetime.now().replace(microsecond=0)
-    # Create the model
+    # Create the transaction model
     transaction_model = Transaction(**transaction_request_data)
     db.add(transaction_model)
     db.commit()
+    # Create the balance model
+    create_balance_entry(
+        db=db,
+        transaction_id=transaction_model.id,
+        transaction_amount=transaction_model.amount,
+    )
 
 
 @router.get("/{transaction_id}", status_code=status.HTTP_200_OK)
