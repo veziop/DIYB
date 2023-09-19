@@ -16,9 +16,10 @@ class Transaction(Base):
         Integer,
         primary_key=True,
         index=True,
+        autoincrement=True,
         doc="Unique identifier of the transaction entry",
     )
-    payee = Column(String, name="payee", doc="Name/title of the payee")
+    payee = Column(String, doc="Name/title of the payee")
     creation_datetime = Column(
         DateTime,
         default=datetime.now,
@@ -40,8 +41,7 @@ class Transaction(Base):
     )
     amount = Column(
         Numeric(10, 2),
-        name="amount",
-        doc="""Transaction amount in euros, with a precision of two decimal places""",
+        doc="Transaction amount in euros, with a precision of two decimal places",
     )
 
 
