@@ -7,7 +7,7 @@ description: Module for the definitions all the project's models.
 from datetime import datetime
 
 from database import Base
-from sqlalchemy import Column, Integer, Float, String, DateTime, ForeignKey, Numeric, Date
+from sqlalchemy import Column, Integer, Boolean, String, DateTime, ForeignKey, Numeric, Date
 
 
 class Transaction(Base):
@@ -47,7 +47,19 @@ class Transaction(Base):
 
 class Balance(Base):
     __tablename__ = 'balance'
-    id = Column(Integer, primary_key=True, index=True)
-    datetime = Column(DateTime)
-    amount = Column(Float)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+        doc="Unique identifier of the balance entry",
+    )
+    entry_datetime = Column(
+        DateTime,
+        doc="Date/time of the balance entry",
+    )
+    running_total = Column(
+        Numeric(10, 2),
+        doc="Total amount in the bank account at the moment of <entry_datetime>"
+    )
+    is_current = Column(Boolean, doc="Whether this entry represent the actual state")
     transaction_id = Column(Integer, ForeignKey('transaction.id'))
