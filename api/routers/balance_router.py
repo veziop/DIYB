@@ -21,9 +21,11 @@ def create_balance_entry(db: db_dependency, transaction_id: int, transaction_amo
     """
     Auxiliary function to create a balance entry when creating a transaction entry. This is
     deliberately not an enpoint as creating a balance entry directly is not allowed. It must
-    derrive from a transaction entry.
+    derrive from creating, updating or deleting a transaction entry.
 
-    :param 
+    :param db: (db_dependancy) SQLAlchemy ORM session.
+    :param transaction_id: (int) ID of the transaction entry.
+    :returns: None
     """
     # Fetch the current total
     current_total_entry = db.query(Balance).filter(Balance.is_current).first()
@@ -47,9 +49,28 @@ def create_balance_entry(db: db_dependency, transaction_id: int, transaction_amo
 
 @router.get("/current", status_code=status.HTTP_200_OK)
 async def get_current_balance(db: db_dependency, all_data: bool = False):
+    """
+    Fetch the current account balance by using the "is_current" flag. Optiona
+
+    :param db: (db_dependancy) SQLAlchemy ORM session.
+    :param all_data: (bool) Optionally return the complete balance entry instead of the scalar.
+    :returns: either balance entry or current balance value.
+    """
     current_balance = db.query(Balance).filter(Balance.is_current).first()
     if not current_balance:
         raise HTTPException(status_code=522, detail="Internal error, no current balance found")
     if all_data:
         return current_balance
     return current_balance.running_total
+
+
+@router.get("/filter/{transaction_id}", status_code=status.HTTP_200_OK)
+async def get_transactions(db: db_dependency, transaction_id: int = Path(gt=0)):
+    """
+    Fetch the balance entries that are linked to a particular transaction.
+
+    :param db: (db_dependancy) SQLAlchemy ORM session.
+    :param transaction_id: (int) ID of the transaction entry.
+    :returns: (list) all the balance entries that match the transaction ID.
+    """
+    return db.query(Balance).filter(Balance.transaction_id == transaction_id).all()
