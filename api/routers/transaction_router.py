@@ -4,17 +4,18 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definitions of routes related to the Transaction model.
 """
-from datetime import datetime, date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Path, Body
+from fastapi import APIRouter, Body, HTTPException, Path
 from pydantic import BaseModel, Field
-from starlette import status
 from sqlalchemy import func
+from starlette import status
 
 from database import db_dependency
-from models import Transaction, Balance
+from models import Balance, Transaction
+
 from .balance_router import create_balance_entry
 
 router = APIRouter(prefix="/transaction", tags=["transaction"])

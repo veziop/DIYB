@@ -4,7 +4,7 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definitions of routes related to the Balance model.
 """
-from datetime import datetime, date
+from datetime import date, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Path

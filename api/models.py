@@ -6,8 +6,9 @@ description: Module for the definitions all the project's models.
 """
 from datetime import datetime
 
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, String
+
 from database import Base
-from sqlalchemy import Column, Integer, Boolean, String, DateTime, ForeignKey, Numeric, Date
 
 
 class Transaction(Base):
