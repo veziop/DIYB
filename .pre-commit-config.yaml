@@ -11,4 +11,4 @@ repos:
     hooks:
       - id: isort
         language_version: python3.10
-        args: ['--check', '--line_length', '96', 'profile', 'black', '--src-path', 'api']
+        args: ['--check', '--line-length', '96', 'profile', 'black', '--src-path', 'api']
