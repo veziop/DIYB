@@ -5,7 +5,6 @@ repos:
       - id: black
         language_version: python3.10
         args: [
-          '-v',
           '--check',
           '--line-length', '96',
           '--target-version', 'py310'
@@ -17,7 +16,6 @@ repos:
       - id: isort
         language_version: python3.10
         args: [
-          '-v',
           '--check',
           '--line-length', '96',
           '--profile', 'black', 
