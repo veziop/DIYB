@@ -11,8 +11,8 @@ from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field
 from starlette import status
 
-from database import db_dependency
-from models import Balance
+from api.database import db_dependency
+from api.models import Balance
 
 router = APIRouter(prefix="/balance", tags=["balance"])
 
