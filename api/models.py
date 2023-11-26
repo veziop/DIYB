@@ -8,7 +8,7 @@ from datetime import datetime
 
 from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, String
 
-from database import Base
+from api.database import Base
 
 
 class Transaction(Base):

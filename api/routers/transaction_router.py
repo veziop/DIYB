@@ -13,8 +13,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func
 from starlette import status
 
-from database import db_dependency
-from models import Balance, Transaction
+from api.database import db_dependency
+from api.models import Balance, Transaction
 
 from .balance_router import create_balance_entry
 
