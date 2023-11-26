@@ -47,7 +47,7 @@ class Transaction(Base):
 
 
 class Balance(Base):
-    __tablename__ = 'balance'
+    __tablename__ = "balance"
     id = Column(
         Integer,
         primary_key=True,
@@ -59,8 +59,7 @@ class Balance(Base):
         doc="Date/time of the balance entry",
     )
     running_total = Column(
-        Numeric(10, 2),
-        doc="Total amount in the bank account at the moment of <entry_datetime>"
+        Numeric(10, 2), doc="Total amount in the bank account at the moment of <entry_datetime>"
     )
     is_current = Column(Boolean, doc="Whether this entry represent the actual state")
-    transaction_id = Column(Integer, ForeignKey('transaction.id'))
+    transaction_id = Column(Integer, ForeignKey("transaction.id"))

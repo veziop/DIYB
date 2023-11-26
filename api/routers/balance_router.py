@@ -39,7 +39,7 @@ def create_balance_entry(db: db_dependency, transaction_id: int, transaction_amo
     # Create the balance model
     balance_model = Balance(
         entry_datetime=datetime.now().replace(microsecond=0),
-        running_total=current_total+transaction_amount,
+        running_total=current_total + transaction_amount,
         is_current=True,
         transaction_id=transaction_id,
     )

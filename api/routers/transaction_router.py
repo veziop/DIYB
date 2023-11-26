@@ -56,7 +56,7 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
     Endpoint to create a new transaction entry in the database.
 
     :param db: (db_dependancy) SQLAlchemy ORM session.
-    :param transaction_request: (TransactionRequest) data to be used to build a new 
+    :param transaction_request: (TransactionRequest) data to be used to build a new
         transaction entry.
     """
     # Discard microseconds from the time data
@@ -150,9 +150,7 @@ async def delete_transaction(
         raise HTTPException(status_code=404, detail="Transaction not found")
     # Undo this transaction's balance influence
     create_balance_entry(
-        db=db,
-        transaction_id=transaction_id,
-        transaction_amount=-transaction_model.amount
+        db=db, transaction_id=transaction_id, transaction_amount=-transaction_model.amount
     )
     # Delete the transaction
     db.delete(transaction_model)
