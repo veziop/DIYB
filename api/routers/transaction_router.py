@@ -75,16 +75,16 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
     )
 
 
-@router.get("/{transaction_id}", status_code=status.HTTP_200_OK)
-async def get_transaction(db: db_dependency, transaction_id: int = Path(gt=0)):
+@router.get("/{id}", status_code=status.HTTP_200_OK)
+async def get_transaction(db: db_dependency, id: int = Path(gt=0)):
     """
     Endpoint to get a specific transaction entry from the database.
 
     :param db: (db_dependancy) SQLAlchemy ORM session.
-    :param transaction_id: (int) ID of the transaction entry.
+    :param id: (int) ID of the transaction entry.
     """
     # Fetch the model
-    transaction_model = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    transaction_model = db.query(Transaction).filter(Transaction.id == id).first()
     # If found return the model
     if transaction_model:
         return transaction_model
@@ -92,11 +92,11 @@ async def get_transaction(db: db_dependency, transaction_id: int = Path(gt=0)):
     raise HTTPException(status_code=404, detail="Transaction not found")
 
 
-@router.put("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.put("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def update_transaction(
     db: db_dependency,
     transaction_request: TransactionRequest,
-    transaction_id: int = Path(gt=0),
+    id: int = Path(gt=0),
 ):
     """
     Endpoint to modify an existing transaction entry from the database.
@@ -104,10 +104,10 @@ async def update_transaction(
     :param db: (db_dependancy) SQLAlchemy ORM session.
     :param transaction_request: (TransactionRequest) data to be used to update the transaction
         entry.
-    :param transaction_id: (int) ID of the transaction entry.
+    :param id: (int) ID of the transaction entry.
     """
     # Fetch the model
-    transaction_model = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    transaction_model = db.query(Transaction).filter(Transaction.id == id).first()
     # If not found raise exception
     if not transaction_model:
         raise HTTPException(status_code=404, detail="Transaction not found")
@@ -127,34 +127,29 @@ async def update_transaction(
     if amount_changed:
         create_balance_entry(
             db=db,
-            transaction_id=transaction_id,
+            transaction_id=id,
             transaction_amount=amount_differance,
         )
 
 
-@router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_transaction(
     db: db_dependency,
-    transaction_id: int = Path(gt=0),
+    id: int = Path(gt=0),
 ):
     """
     Endpoint to delete an existing transaction entry from the database.
 
     :param db: (db_dependancy) SQLAlchemy ORM session.
-    :param transaction_id: (int) ID of the transaction entry.
+    :param id: (int) ID of the transaction entry.
     """
     # Fetch the model
-    transaction_model = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    transaction_model = db.query(Transaction).filter(Transaction.id == id).first()
     # If not found raise exception
     if not transaction_model:
         raise HTTPException(status_code=404, detail="Transaction not found")
     # Undo this transaction's balance influence
-    create_balance_entry(
-        db=db, transaction_id=transaction_id, transaction_amount=-transaction_model.amount
-    )
+    create_balance_entry(db=db, transaction_id=id, transaction_amount=-transaction_model.amount)
     # Delete the transaction
     db.delete(transaction_model)
     db.commit()
-    # Delete the balance entry
-    # TODO create process for deleting only if flag "is_current" is False; also new process for
-    #  transferring "is_current" if it is set to True

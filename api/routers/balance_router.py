@@ -64,13 +64,13 @@ async def get_current_balance(db: db_dependency, all_data: bool = False):
     return current_balance.running_total
 
 
-@router.get("/filter/{transaction_id}", status_code=status.HTTP_200_OK)
-async def get_transactions(db: db_dependency, transaction_id: int = Path(gt=0)):
+@router.get("/filter/{id}", status_code=status.HTTP_200_OK)
+async def get_transactions(db: db_dependency, id: int = Path(gt=0)):
     """
     Fetch the balance entries that are linked to a particular transaction.
 
     :param db: (db_dependancy) SQLAlchemy ORM session.
-    :param transaction_id: (int) ID of the transaction entry.
+    :param id: (int) ID of the transaction entry.
     :returns: (list) all the balance entries that match the transaction ID.
     """
-    return db.query(Balance).filter(Balance.transaction_id == transaction_id).all()
+    return db.query(Balance).filter(Balance.transaction_id == id).all()
