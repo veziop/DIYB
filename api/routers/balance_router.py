@@ -47,10 +47,29 @@ def create_balance_entry(db: db_dependency, transaction_id: int, transaction_amo
     db.commit()
 
 
+def get_time_based_current(db: db_dependency, _set: bool = False) -> Balance:
+    """
+    Auxiliary function (in the case where no row has the <is_current> flag) to retrieve the
+    running total based on the most current <entry_datetime> date and time.
+
+    :param db: (db_dependency) SQLAlchemy ORM session.
+    :param _set: (bool) optional; if True overwrite the <is_current> flag.
+    """
+    # Determine latest balance entry by date/time
+    current_balance = db.query(Balance).order_by(Balance.entry_datetime.desc()).first()
+    # Optionally set the flag
+    if _set:
+        current_balance.is_current = True
+        db.add(current_balance)
+        db.commit()
+    return current_balance
+
+
 @router.get("/current", status_code=status.HTTP_200_OK)
 async def get_current_balance(db: db_dependency, all_data: bool = False):
     """
-    Fetch the current account balance by using the "is_current" flag. Optiona
+    Fetch the current account balance by using the "is_current" flag. Optionally return the
+    whole balance entry data instead of the running total value.
 
     :param db: (db_dependancy) SQLAlchemy ORM session.
     :param all_data: (bool) Optionally return the complete balance entry instead of the scalar.
@@ -58,7 +77,7 @@ async def get_current_balance(db: db_dependency, all_data: bool = False):
     """
     current_balance = db.query(Balance).filter(Balance.is_current).first()
     if not current_balance:
-        raise HTTPException(status_code=522, detail="Internal error, no current balance found")
+        current_balance = get_time_based_current(db, _set=True)
     if all_data:
         return current_balance
     return current_balance.running_total
