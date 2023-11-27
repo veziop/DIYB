@@ -15,8 +15,7 @@ from starlette import status
 
 from api.database import db_dependency
 from api.models import Balance, Transaction
-
-from .balance_router import create_balance_entry
+from api.routers.balance_router import create_balance_entry
 
 router = APIRouter(prefix="/transaction", tags=["transaction"])
 
