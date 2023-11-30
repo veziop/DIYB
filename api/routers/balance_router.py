@@ -17,7 +17,19 @@ from api.models import Balance
 router = APIRouter(prefix="/balance", tags=["balance"])
 
 
-def create_balance_entry(db: db_dependency, transaction_id: int, transaction_amount: Decimal):
+class BalanceResponse(BaseModel):
+    id: int = Field(min=0)
+    entry_datetime: datetime
+    running_total: Decimal
+    is_current: bool
+    transaction_id: int = Field(min=0)
+
+
+def create_balance_entry(
+    db: db_dependency,
+    transaction_id: int,
+    transaction_amount: Decimal,
+) -> None:
     """
     Auxiliary function to create a balance entry when creating a transaction entry. This is
     deliberately not an enpoint as creating a balance entry directly is not allowed. It must
@@ -65,8 +77,8 @@ def get_time_based_current(db: db_dependency, _set: bool = False) -> Balance:
     return current_balance
 
 
-@router.get("/current", status_code=status.HTTP_200_OK)
-async def get_current_balance(db: db_dependency, all_data: bool = False):
+@router.get("/current", status_code=status.HTTP_200_OK, response_model=None)
+async def get_current_balance(db: db_dependency, all_data: bool = False) -> Decimal | Balance:
     """
     Fetch the current account balance by using the "is_current" flag. Optionally return the
     whole balance entry data instead of the running total value.
@@ -83,7 +95,9 @@ async def get_current_balance(db: db_dependency, all_data: bool = False):
     return current_balance.running_total
 
 
-@router.get("/filter/{id}", status_code=status.HTTP_200_OK)
+@router.get(
+    "/filter/{id}", status_code=status.HTTP_200_OK, response_model=list[BalanceResponse]
+)
 async def get_transactions(db: db_dependency, id: int = Path(gt=0)):
     """
     Fetch the balance entries that are linked to a particular transaction.
