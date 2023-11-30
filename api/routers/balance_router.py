@@ -96,7 +96,9 @@ async def get_current_balance(db: db_dependency, all_data: bool = False) -> Deci
 
 
 @router.get(
-    "/filter/{id}", status_code=status.HTTP_200_OK, response_model=list[BalanceResponse]
+    "/filterby/transaction/{id}",
+    status_code=status.HTTP_200_OK,
+    response_model=list[BalanceResponse],
 )
 async def get_transactions(db: db_dependency, id: int = Path(gt=0)):
     """
