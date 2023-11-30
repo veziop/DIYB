@@ -28,7 +28,17 @@ class TransactionRequest(BaseModel):
     amount: Decimal = Field(decimal_places=2)
 
 
-@router.get("/all", status_code=status.HTTP_200_OK)
+class TransactionResponse(BaseModel):
+    id: int
+    payee: str
+    transaction_date: date
+    creation_datetime: datetime
+    last_update_datetime: datetime
+    description: str
+    amount: float
+
+
+@router.get("/all", status_code=status.HTTP_200_OK, response_model=list[TransactionResponse])
 async def read_all_transactions(db: db_dependency):
     """
     Endpoint to fetch all transaction entries from the database.
@@ -39,7 +49,7 @@ async def read_all_transactions(db: db_dependency):
 
 
 @router.get("/all/sum", status_code=status.HTTP_200_OK)
-async def get_transactions_sum(db: db_dependency):
+async def get_transactions_sum(db: db_dependency) -> float:
     """
     Endpoint to get the sum of all the transactions' amounts. Useful to check the validity of
     the Balance table and its "is_current" flag.
@@ -74,7 +84,7 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
     )
 
 
-@router.get("/{id}", status_code=status.HTTP_200_OK)
+@router.get("/{id}", status_code=status.HTTP_200_OK, response_model=TransactionResponse)
 async def get_transaction(db: db_dependency, id: int = Path(gt=0)):
     """
     Endpoint to get a specific transaction entry from the database.
