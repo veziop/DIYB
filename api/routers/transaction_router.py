@@ -6,9 +6,8 @@ description: Module for the definitions of routes related to the Transaction mod
 """
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Annotated
 
-from fastapi import APIRouter, Body, HTTPException, Path
+from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from starlette import status
@@ -20,15 +19,34 @@ from api.routers.balance_router import create_balance_entry
 router = APIRouter(prefix="/transaction", tags=["transaction"])
 
 
-# Data verification using pydantic
 class TransactionRequest(BaseModel):
+    """
+    Request model for data validation
+    """
+
     payee: str = Field(min_length=1)
     transaction_date: date = Field(default=date.today())
     description: str = Field(max_length=100)
     amount: Decimal = Field(decimal_places=2)
 
 
+class TransactionPartialRequest(BaseModel):
+    """
+    Separate request model for partial updates. This distinction is needed for assigning
+    default values to all attributes, thus allowing only some attributes to be submitted.
+    """
+
+    payee: str = None
+    transaction_date: date = None
+    description: str = None
+    amount: Decimal = None
+
+
 class TransactionResponse(BaseModel):
+    """
+    Response model to validate the response data.
+    """
+
     id: int
     payee: str
     transaction_date: date
@@ -133,6 +151,59 @@ async def update_transaction(
     db.add(transaction_model)
     db.commit()
     # Create new balance entry
+    if amount_changed:
+        create_balance_entry(
+            db=db,
+            transaction_id=id,
+            transaction_amount=amount_differance,
+        )
+
+
+@router.patch("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def partially_update_transaction(
+    db: db_dependency,
+    new_data: TransactionPartialRequest,
+    id: int = Path(gt=0),
+):
+    """
+    Endpoint to partially modify an existing transaction entry from the database.
+
+    :param db: (db_dependancy) SQLAlchemy ORM session.
+    :param new_data: (TransactionPartialRequest) data to be used to update the transaction
+        entry.
+    :param id: (int) ID of the transaction entry.
+    """
+    # Fetch the model
+    transaction_model = db.query(Transaction).filter(Transaction.id == id).first()
+    # If not found raise exception
+    if not transaction_model:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    # Collect attributes to modify
+    update_data = new_data.dict(exclude_unset=True)
+    # Detect changes to the amount
+    amount_changed = "amount" in update_data
+    amount_differance = update_data.get("amount", 0) - transaction_model.amount
+    # Update the entry
+    transaction_model.last_update_datetime = datetime.now().replace(microsecond=0)
+    for attribute, value in update_data.items():
+        match attribute:
+            case "payee":
+                if len(value) < 2:
+                    raise ValueError("Attr <payee> must be at least a character in length.")
+            case "transaction_date":
+                if value > date.today():
+                    raise ValueError("Attr <transaction_date> cannot be in the future")
+            case "description":
+                if len(value) > 100:
+                    raise ValueError("Attr <description> cannot be over 100 characters.")
+            case "amount":
+                if value.as_tuple().exponent < -2:
+                    raise ValueError("Attr <amount> cannot have more than two decimal places.")
+        setattr(transaction_model, attribute, value)
+    # Update the data in database
+    db.add(transaction_model)
+    db.commit()
+    # Create new balance entry if the amount changes
     if amount_changed:
         create_balance_entry(
             db=db,
