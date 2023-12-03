@@ -32,7 +32,7 @@ def create_balance_entry(
 ) -> None:
     """
     Auxiliary function to create a balance entry when creating a transaction entry. This is
-    deliberately not an enpoint as creating a balance entry directly is not allowed. It must
+    deliberately not an endpoint as creating a balance entry directly is not allowed. It must
     derrive from creating, updating or deleting a transaction entry.
 
     :param db: (db_dependancy) SQLAlchemy ORM session.
@@ -41,9 +41,12 @@ def create_balance_entry(
     """
     # Fetch the current total
     current_total_entry = db.query(Balance).filter(Balance.is_current).first()
-    # If it is the first transaction the current is 0
+    # Determine latest balance entry by date/time if no entry is found
+    if not current_total_entry:
+        current_total_entry = get_time_based_current(db, _set=False)
     if current_total_entry:
         current_total = current_total_entry.running_total
+    # If it is the first transaction the current is 0
     else:
         current_total = Decimal(0)
     # Overwrite all entries as not current
@@ -66,6 +69,7 @@ def get_time_based_current(db: db_dependency, _set: bool = False) -> Balance:
 
     :param db: (db_dependency) SQLAlchemy ORM session.
     :param _set: (bool) optional; if True overwrite the <is_current> flag.
+    :returns: (Balance) entry that is deemed as most recent.
     """
     # Determine latest balance entry by date/time
     current_balance = db.query(Balance).order_by(Balance.entry_datetime.desc()).first()
@@ -88,8 +92,11 @@ async def get_current_balance(db: db_dependency, all_data: bool = False) -> Deci
     :returns: either balance entry or current balance value.
     """
     current_balance = db.query(Balance).filter(Balance.is_current).first()
+    # Determine latest balance entry by date/time if no entry is found
     if not current_balance:
         current_balance = get_time_based_current(db, _set=True)
+    if not current_balance:
+        raise HTTPException(status_code=404, detail="No entry found")
     if all_data:
         return current_balance
     return current_balance.running_total
