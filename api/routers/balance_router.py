@@ -20,6 +20,7 @@ router = APIRouter(prefix="/balance", tags=["balance"])
 class BalanceResponse(BaseModel):
     id: int = Field(min=0)
     entry_datetime: datetime
+    transaction_amount_record: float
     running_total: float
     is_current: bool
     transaction_id: int = Field(min=0)
@@ -28,15 +29,18 @@ class BalanceResponse(BaseModel):
 def create_balance_entry(
     db: db_dependency,
     transaction_id: int,
-    transaction_amount: Decimal,
+    amount_difference: Decimal,
+    transaction_amount: float = None,
 ) -> None:
     """
     Auxiliary function to create a balance entry when creating a transaction entry. This is
     deliberately not an endpoint as creating a balance entry directly is not allowed. It must
-    derrive from creating, updating or deleting a transaction entry.
+    derive from creating, updating or deleting a transaction entry.
 
-    :param db: (db_dependancy) SQLAlchemy ORM session.
+    :param db: (db_dependency) SQLAlchemy ORM session.
     :param transaction_id: (int) ID of the transaction entry.
+    :param amount_difference: (Decimal) amount to adjust the current balance with.
+    :param transaction_amount:
     :returns: None
     """
     # Fetch the current total
@@ -54,7 +58,10 @@ def create_balance_entry(
     # Create the balance model
     balance_model = Balance(
         entry_datetime=datetime.now().replace(microsecond=0),
-        running_total=current_total + transaction_amount,
+        transaction_amount_record=(
+            amount_difference if not transaction_amount else transaction_amount
+        ),
+        running_total=current_total + amount_difference,
         is_current=True,
         transaction_id=transaction_id,
     )
@@ -87,7 +94,7 @@ async def get_current_balance(db: db_dependency, all_data: bool = False) -> Deci
     Fetch the current account balance by using the "is_current" flag. Optionally return the
     whole balance entry data instead of the running total value.
 
-    :param db: (db_dependancy) SQLAlchemy ORM session.
+    :param db: (db_dependency) SQLAlchemy ORM session.
     :param all_data: (bool) Optionally return the complete balance entry instead of the scalar.
     :returns: either balance entry or current balance value.
     """
@@ -111,7 +118,7 @@ async def get_transactions(db: db_dependency, id: int = Path(gt=0)):
     """
     Fetch the balance entries that are linked to a particular transaction.
 
-    :param db: (db_dependancy) SQLAlchemy ORM session.
+    :param db: (db_dependency) SQLAlchemy ORM session.
     :param id: (int) ID of the transaction entry.
     :returns: (list) all the balance entries that match the transaction ID.
     """

@@ -61,7 +61,7 @@ async def read_all_transactions(db: db_dependency):
     """
     Endpoint to fetch all transaction entries from the database.
 
-    :param db: (db_dependancy) SQLAlchemy ORM session.
+    :param db: (db_dependency) SQLAlchemy ORM session.
     """
     return db.query(Transaction).all()
 
@@ -72,7 +72,7 @@ async def get_transactions_sum(db: db_dependency) -> float:
     Endpoint to get the sum of all the transactions' amounts. Useful to check the validity of
     the Balance table and its "is_current" flag.
 
-    :param db: (db_dependancy) SQLAlchemy ORM session.
+    :param db: (db_dependency) SQLAlchemy ORM session.
     """
     return db.query(func.sum(Transaction.amount)).scalar()
 
@@ -82,7 +82,7 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
     """
     Endpoint to create a new transaction entry in the database.
 
-    :param db: (db_dependancy) SQLAlchemy ORM session.
+    :param db: (db_dependency) SQLAlchemy ORM session.
     :param transaction_request: (TransactionRequest) data to be used to build a new
         transaction entry.
     """
@@ -98,7 +98,7 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
     create_balance_entry(
         db=db,
         transaction_id=transaction_model.id,
-        transaction_amount=transaction_model.amount,
+        amount_difference=transaction_model.amount,
     )
 
 
@@ -107,7 +107,7 @@ async def get_transaction(db: db_dependency, id: int = Path(gt=0)):
     """
     Endpoint to get a specific transaction entry from the database.
 
-    :param db: (db_dependancy) SQLAlchemy ORM session.
+    :param db: (db_dependency) SQLAlchemy ORM session.
     :param id: (int) ID of the transaction entry.
     """
     # Fetch the model
@@ -128,7 +128,7 @@ async def update_transaction(
     """
     Endpoint to modify an existing transaction entry from the database.
 
-    :param db: (db_dependancy) SQLAlchemy ORM session.
+    :param db: (db_dependency) SQLAlchemy ORM session.
     :param transaction_request: (TransactionRequest) data to be used to update the transaction
         entry.
     :param id: (int) ID of the transaction entry.
@@ -140,7 +140,7 @@ async def update_transaction(
         raise HTTPException(status_code=404, detail="Transaction not found")
     # Detect changes to the amount
     amount_changed = transaction_model.amount != transaction_request.amount
-    amount_differance = transaction_request.amount - transaction_model.amount
+    amount_difference = transaction_request.amount - transaction_model.amount
     # Modify the existing data
     transaction_model.payee = transaction_request.payee
     transaction_model.transaction_date = transaction_request.transaction_date
@@ -155,7 +155,8 @@ async def update_transaction(
         create_balance_entry(
             db=db,
             transaction_id=id,
-            transaction_amount=amount_differance,
+            amount_difference=amount_difference,
+            transaction_amount=transaction_request.amount,
         )
 
 
@@ -168,7 +169,7 @@ async def partially_update_transaction(
     """
     Endpoint to partially modify an existing transaction entry from the database.
 
-    :param db: (db_dependancy) SQLAlchemy ORM session.
+    :param db: (db_dependency) SQLAlchemy ORM session.
     :param new_data: (TransactionPartialRequest) data to be used to update the transaction
         entry.
     :param id: (int) ID of the transaction entry.
@@ -182,7 +183,7 @@ async def partially_update_transaction(
     update_data = new_data.dict(exclude_unset=True)
     # Detect changes to the amount
     amount_changed = "amount" in update_data
-    amount_differance = update_data.get("amount", 0) - transaction_model.amount
+    amount_difference = update_data.get("amount", 0) - transaction_model.amount
     # Update the entry
     transaction_model.last_update_datetime = datetime.now().replace(microsecond=0)
     for attribute, value in update_data.items():
@@ -208,7 +209,8 @@ async def partially_update_transaction(
         create_balance_entry(
             db=db,
             transaction_id=id,
-            transaction_amount=amount_differance,
+            amount_difference=amount_difference,
+            transaction_amount=update_data.get("amount"),
         )
 
 
@@ -220,7 +222,7 @@ async def delete_transaction(
     """
     Endpoint to delete an existing transaction entry from the database.
 
-    :param db: (db_dependancy) SQLAlchemy ORM session.
+    :param db: (db_dependency) SQLAlchemy ORM session.
     :param id: (int) ID of the transaction entry.
     """
     # Fetch the model
@@ -229,7 +231,7 @@ async def delete_transaction(
     if not transaction_model:
         raise HTTPException(status_code=404, detail="Transaction not found")
     # Undo this transaction's balance influence
-    create_balance_entry(db=db, transaction_id=id, transaction_amount=-transaction_model.amount)
+    create_balance_entry(db=db, transaction_id=id, amount_difference=-transaction_model.amount)
     # Delete the transaction
     db.delete(transaction_model)
     db.commit()
