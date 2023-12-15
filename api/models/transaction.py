@@ -1,14 +1,15 @@
 """
-filename: models.py
+filename: transaction.py
 author: Valentin Piombo
 email: valenp97@gmail.com
-description: Module for the definitions all the project's models.
+description: Module for the definition of the transaction model.
 """
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, Numeric, String
 
 from api.database import Base
+from api.models.category import Category
 
 
 class Transaction(Base):
@@ -44,28 +45,8 @@ class Transaction(Base):
         Numeric(10, 2),
         doc="Transaction amount in euros, with a precision of two decimal places",
     )
-
-
-class Balance(Base):
-    __tablename__ = "balance"
-    id = Column(
+    category_id = Column(
         Integer,
-        primary_key=True,
-        index=True,
-        doc="Unique identifier of the balance entry",
-    )
-    entry_datetime = Column(DateTime, doc="Date/time of the balance entry")
-    transaction_amount_record = Column(
-        Numeric(10, 2),
-        doc="Record of the transaction amount that was set when the balance entry "
-        "was created/modified. Note: this is deliberately not a foreign key.",
-    )
-    running_total = Column(
-        Numeric(10, 2), doc="Total amount in the bank account at the moment of <entry_datetime>"
-    )
-    is_current = Column(Boolean, doc="Whether this entry represent the actual state")
-    transaction_id = Column(
-        Integer,
-        ForeignKey("transaction.id"),
-        doc="Foreign key link to the transaction entry associated to this balance entry",
+        ForeignKey("category.id"),
+        doc="Foreign key link to the category to which the transaction entry is bound to",
     )

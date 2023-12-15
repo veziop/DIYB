@@ -1,5 +1,5 @@
 """
-filename: balance_router.py
+filename: balance.py
 author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definitions of routes related to the Balance model.
@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from starlette import status
 
 from api.database import db_dependency
-from api.models import Balance
+from api.models.balance import Balance
 
 router = APIRouter(prefix="/balance", tags=["balance"])
 

@@ -1,5 +1,5 @@
 """
-filename: transaction_router.py
+filename: transaction.py
 author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definitions of routes related to the Transaction model.
@@ -13,8 +13,8 @@ from sqlalchemy import func
 from starlette import status
 
 from api.database import db_dependency
-from api.models import Balance, Transaction
-from api.routers.balance_router import create_balance_entry
+from api.models.transaction import Transaction
+from api.routers.balance import create_balance_entry
 
 router = APIRouter(prefix="/transaction", tags=["transaction"])
 
@@ -87,7 +87,7 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
         transaction entry.
     """
     # Discard microseconds from the time data
-    transaction_request_data = transaction_request.dict()
+    transaction_request_data = transaction_request.model_dump()
     transaction_request_data["creation_datetime"] = datetime.now().replace(microsecond=0)
     transaction_request_data["last_update_datetime"] = datetime.now().replace(microsecond=0)
     # Create the transaction model
@@ -180,7 +180,7 @@ async def partially_update_transaction(
     if not transaction_model:
         raise HTTPException(status_code=404, detail="Transaction not found")
     # Collect attributes to modify
-    update_data = new_data.dict(exclude_unset=True)
+    update_data = new_data.model_dump(exclude_unset=True)
     # Detect changes to the amount
     amount_changed = "amount" in update_data
     amount_difference = update_data.get("amount", 0) - transaction_model.amount
