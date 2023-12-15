@@ -54,6 +54,7 @@ class TransactionResponse(BaseModel):
     last_update_datetime: datetime
     description: str
     amount: float
+    category_id: int
 
 
 @router.get("/all", status_code=status.HTTP_200_OK, response_model=list[TransactionResponse])
