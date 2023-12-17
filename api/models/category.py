@@ -4,6 +4,8 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definition of the category model.
 """
+from decimal import Decimal
+
 from sqlalchemy import Column, Integer, Numeric, String
 
 from api.database import Base
@@ -25,5 +27,7 @@ class Category(Base):
         doc="User defined description of the category entry",
     )
     assigned_amount = Column(
-        Numeric(10, 2), doc="Remaining amount assigned to this category entry"
+        Numeric(10, 2),
+        default=Decimal(0),
+        doc="Remaining amount assigned to this category entry",
     )

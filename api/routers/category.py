@@ -4,14 +4,11 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definitions of routes related to the Category model.
 """
-from datetime import date, datetime
-from decimal import Decimal
-
 from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field
 from starlette import status
 
-from api.database import db_dependency
+from api.database import SessionLocal, db_dependency
 from api.models.category import Category
 
 router = APIRouter(prefix="/category", tags=["category"])
@@ -24,6 +21,21 @@ class CategoryRequest(BaseModel):
 
 class CategoryResponse(CategoryRequest):
     pass
+
+
+def create_staging_category() -> None:
+    """ """
+    with SessionLocal() as db:
+        categories = db.query(Category).all()
+        if categories:
+            return
+        stage_model = Category(
+            title="stage",
+            description="stage category to assign to all other categories",
+        )
+        print("CREANDO STAGING")
+        db.add(stage_model)
+        db.commit()
 
 
 @router.get("/all", status_code=status.HTTP_200_OK)
