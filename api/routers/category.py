@@ -24,7 +24,7 @@ class CategoryResponse(CategoryRequest):
 
 
 def create_staging_category() -> None:
-    """ """
+    """Create the main category from which to assign to all others."""
     with SessionLocal() as db:
         categories = db.query(Category).all()
         if categories:
@@ -33,7 +33,6 @@ def create_staging_category() -> None:
             title="stage",
             description="stage category to assign to all other categories",
         )
-        print("CREANDO STAGING")
         db.add(stage_model)
         db.commit()
 
