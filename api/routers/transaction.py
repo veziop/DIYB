@@ -28,6 +28,7 @@ class TransactionRequest(BaseModel):
     transaction_date: date = Field(default=date.today())
     description: str = Field(max_length=100)
     amount: Decimal = Field(decimal_places=2)
+    category_id: int = Field(gt=0)
 
 
 class TransactionPartialRequest(BaseModel):
@@ -40,6 +41,7 @@ class TransactionPartialRequest(BaseModel):
     transaction_date: date = None
     description: str = None
     amount: Decimal = None
+    category_id: int = None
 
 
 class TransactionResponse(BaseModel):

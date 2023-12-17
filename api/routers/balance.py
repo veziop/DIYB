@@ -4,7 +4,7 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definitions of routes related to the Balance model.
 """
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Path
@@ -23,7 +23,7 @@ class BalanceResponse(BaseModel):
     transaction_amount_record: float
     running_total: float
     is_current: bool
-    transaction_id: int = Field(min=0)
+    transaction_id: int = Field(gt=0)
 
 
 def create_balance_entry(
