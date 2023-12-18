@@ -150,24 +150,30 @@ async def partially_update_category(
     db.commit()
 
 
-# @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-# async def delete_transaction(
-#     db: db_dependency,
-#     id: int = Path(gt=0),
-# ):
-#     """
-#     Endpoint to delete an existing transaction entry from the database.
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_transaction(
+    db: db_dependency,
+    id: int = Path(gt=0),
+):
+    """
+    Endpoint to delete an existing category entry from the database.
 
-#     :param db: (db_dependency) SQLAlchemy ORM session.
-#     :param id: (int) ID of the transaction entry.
-#     """
-#     # Fetch the model
-#     transaction_model = db.query(Transaction).filter(Transaction.id == id).first()
-#     # If not found raise exception
-#     if not transaction_model:
-#         raise HTTPException(status_code=404, detail="Transaction not found")
-#     # Undo this transaction's balance influence
-#     create_balance_entry(db=db, transaction_id=id, amount_difference=-transaction_model.amount)
-#     # Delete the transaction
-#     db.delete(transaction_model)
-#     db.commit()
+    :param db: (db_dependency) SQLAlchemy ORM session.
+    :param id: (int) ID of the category entry.
+    """
+    # Fetch the model
+    category_model = db.query(Category).filter(Category.id == id).first()
+    # If not found raise exception
+    if not category_model:
+        raise HTTPException(status_code=404, detail="Category not found")
+    # Protect the stage category from deletion
+    if category_model.id == 1:
+        raise HTTPException(status_code=405, detail="Cannot delete the stage category")
+    # Transfer the remaining amount to the default stage category
+    if category_model.assigned_amount:
+        stage_model = db.query(Category).filter(Category.id == 1).first()
+        stage_model.assigned_amount += category_model.assigned_amount
+        db.add(stage_model)
+    # Delete the category
+    db.delete(category_model)
+    db.commit()
