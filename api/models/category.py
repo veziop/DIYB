@@ -20,7 +20,7 @@ class Category(Base):
         autoincrement=True,
         doc="Unique identifier of the category entry",
     )
-    title = Column(String(length=30), doc="Title or name of the category entry")
+    title = Column(String(length=30), unique=True, doc="Title or name of the category entry")
     description = Column(
         String(length=100),
         default="no description",

@@ -21,7 +21,7 @@ class Transaction(Base):
         autoincrement=True,
         doc="Unique identifier of the transaction entry",
     )
-    payee = Column(String, doc="Name/title of the payee")
+    payee = Column(String(30), doc="Name/title of the payee")
     creation_datetime = Column(
         DateTime,
         default=datetime.now,
@@ -37,7 +37,7 @@ class Transaction(Base):
         doc="Date of the transaction between the user and the payee",
     )
     description = Column(
-        String,
+        String(100),
         default="no description",
         doc="User defined description of the transaction entry",
     )
