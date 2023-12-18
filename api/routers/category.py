@@ -23,6 +23,11 @@ class CategoryResponse(CategoryRequest):
     pass
 
 
+class CategoryPartialRequest(BaseModel):
+    title: str = None
+    description: str = None
+
+
 def create_staging_category() -> None:
     """Create the main category from which to assign to all others."""
     with SessionLocal() as db:
@@ -102,67 +107,47 @@ async def update_category(
     # Modify the existing data
     category_model.title = category_request.title
     category_model.description = category_request.description
-    category_model.assigned_amount = category_request.assigned_amount
     # Confirm the changes
     db.add(category_model)
     db.commit()
 
 
-# ##############################################################################################
+@router.patch("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def partially_update_category(
+    db: db_dependency,
+    new_data: CategoryPartialRequest,
+    id: int = Path(gt=0),
+):
+    """
+    Endpoint to partially modify an existing category entry from the database.
 
-
-# @router.patch("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-# async def partially_update_transaction(
-#     db: db_dependency,
-#     new_data: TransactionPartialRequest,
-#     id: int = Path(gt=0),
-# ):
-#     """
-#     Endpoint to partially modify an existing transaction entry from the database.
-
-#     :param db: (db_dependency) SQLAlchemy ORM session.
-#     :param new_data: (TransactionPartialRequest) data to be used to update the transaction
-#         entry.
-#     :param id: (int) ID of the transaction entry.
-#     """
-#     # Fetch the model
-#     category_model = db.query(Transaction).filter(Transaction.id == id).first()
-#     # If not found raise exception
-#     if not category_model:
-#         raise HTTPException(status_code=404, detail="Transaction not found")
-#     # Collect attributes to modify
-#     update_data = new_data.model_dump(exclude_unset=True)
-#     # Detect changes to the amount
-#     amount_changed = "amount" in update_data
-#     amount_difference = update_data.get("amount", 0) - category_model.amount
-#     # Update the entry
-#     category_model.last_update_datetime = datetime.now().replace(microsecond=0)
-#     for attribute, value in update_data.items():
-#         match attribute:
-#             case "payee":
-#                 if len(value) < 2:
-#                     raise ValueError("Attr <payee> must be at least a character in length.")
-#             case "transaction_date":
-#                 if value > date.today():
-#                     raise ValueError("Attr <transaction_date> cannot be in the future")
-#             case "description":
-#                 if len(value) > 100:
-#                     raise ValueError("Attr <description> cannot be over 100 characters.")
-#             case "amount":
-#                 if value.as_tuple().exponent < -2:
-#                     raise ValueError("Attr <amount> cannot have more than two decimal places.")
-#         setattr(category_model, attribute, value)
-#     # Update the data in database
-#     db.add(category_model)
-#     db.commit()
-#     # Create new balance entry if the amount changes
-#     if amount_changed:
-#         create_balance_entry(
-#             db=db,
-#             transaction_id=id,
-#             amount_difference=amount_difference,
-#             transaction_amount=update_data.get("amount"),
-#         )
+    :param db: (db_dependency) SQLAlchemy ORM session.
+    :param new_data: (CategoryPartialRequest) data to be used to update the category
+        entry.
+    :param id: (int) ID of the category entry.
+    """
+    # Fetch the model
+    category_model = db.query(Category).filter(Category.id == id).first()
+    # If not found raise exception
+    if not category_model:
+        raise HTTPException(status_code=404, detail="Category not found")
+    # Collect attributes to modify
+    update_data = new_data.model_dump(exclude_unset=True)
+    # Manual validation as pydantic partial model had none
+    for attribute, value in update_data.items():
+        match attribute:
+            case "title":
+                if len(value) > 40:
+                    raise ValueError("Attr <title> must be less than 30 character in length.")
+                if len(value) < 2:
+                    raise ValueError("Attr <title> must be at least 2 character in length.")
+            case "description":
+                if len(value) > 100:
+                    raise ValueError("Attr <description> cannot be over 100 characters.")
+        setattr(category_model, attribute, value)
+    # Update the data in database
+    db.add(category_model)
+    db.commit()
 
 
 # @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
