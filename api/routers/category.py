@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field
 from starlette import status
 
-from api.database import SessionLocal, db_dependency
+from api.database import db_dependency, sql_session
 from api.models.category import Category
 
 router = APIRouter(prefix="/category", tags=["category"])
@@ -30,7 +30,7 @@ class CategoryPartialRequest(BaseModel):
 
 def create_staging_category() -> None:
     """Create the main category from which to assign to all others."""
-    with SessionLocal() as db:
+    with sql_session() as db:
         categories = db.query(Category).all()
         if categories:
             return
@@ -39,7 +39,6 @@ def create_staging_category() -> None:
             description="stage category to assign to all other categories",
         )
         db.add(stage_model)
-        db.commit()
 
 
 @router.get("/all", status_code=status.HTTP_200_OK)
