@@ -95,6 +95,10 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
     transaction_request_data["last_update_datetime"] = datetime.now().replace(microsecond=0)
     # Create the transaction model
     transaction_model = Transaction(**transaction_request_data)
+    # If money inflow, overwrite the default 'stage' category
+    if transaction_model.amount > 0:
+        transaction_model.category_id = 1
+    # Add the model to the database
     db.add(transaction_model)
     db.commit()
     # Create the balance model
