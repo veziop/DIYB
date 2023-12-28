@@ -100,7 +100,6 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
         transaction_model.category_id = 1
     # Add the model to the database
     db.add(transaction_model)
-    db.commit()
     # Create the balance model
     create_balance_entry(
         db=db,
@@ -156,7 +155,6 @@ async def update_transaction(
     transaction_model.amount = transaction_request.amount
     # Confirm the changes
     db.add(transaction_model)
-    db.commit()
     # Create new balance entry
     if amount_changed:
         create_balance_entry(
@@ -210,7 +208,6 @@ async def partially_update_transaction(
         setattr(transaction_model, attribute, value)
     # Update the data in database
     db.add(transaction_model)
-    db.commit()
     # Create new balance entry if the amount changes
     if amount_changed:
         create_balance_entry(
@@ -241,4 +238,3 @@ async def delete_transaction(
     create_balance_entry(db=db, transaction_id=id, amount_difference=-transaction_model.amount)
     # Delete the transaction
     db.delete(transaction_model)
-    db.commit()

@@ -66,7 +66,6 @@ def create_balance_entry(
         transaction_id=transaction_id,
     )
     db.add(balance_model)
-    db.commit()
 
 
 def get_time_based_current(db: db_dependency, _set: bool = False) -> Balance:
@@ -84,7 +83,6 @@ def get_time_based_current(db: db_dependency, _set: bool = False) -> Balance:
     if _set:
         current_balance.is_current = True
         db.add(current_balance)
-        db.commit()
     return current_balance
 
 

@@ -64,7 +64,6 @@ async def create_category(db: db_dependency, category_request: CategoryRequest):
     category_model = Category(**category_request.model_dump())
     # Upload model to the database
     db.add(category_model)
-    db.commit()
 
 
 @router.get("/{id}", status_code=status.HTTP_200_OK, response_model=CategoryResponse)
@@ -108,7 +107,6 @@ async def update_category(
     category_model.description = category_request.description
     # Confirm the changes
     db.add(category_model)
-    db.commit()
 
 
 @router.patch("/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -146,7 +144,6 @@ async def partially_update_category(
         setattr(category_model, attribute, value)
     # Update the data in database
     db.add(category_model)
-    db.commit()
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -175,4 +172,3 @@ async def delete_transaction(
         db.add(stage_model)
     # Delete the category
     db.delete(category_model)
-    db.commit()
