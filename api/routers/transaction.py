@@ -15,6 +15,7 @@ from starlette import status
 from api.database import db_dependency
 from api.models.transaction import Transaction
 from api.routers.balance import create_balance_entry
+from api.routers.category import update_category_amount
 
 router = APIRouter(prefix="/transaction", tags=["transaction"])
 
@@ -100,6 +101,10 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
         transaction_model.category_id = 1
     # Add the model to the database
     db.add(transaction_model)
+    # Update the category entry's amount
+    update_category_amount(
+        db=db, category_id=transaction_model.category_id, amount=transaction_model.amount
+    )
     # Create the balance model
     create_balance_entry(
         db=db,
@@ -155,8 +160,11 @@ async def update_transaction(
     transaction_model.amount = transaction_request.amount
     # Confirm the changes
     db.add(transaction_model)
-    # Create new balance entry
+    # Create new balance entry and update the category
     if amount_changed:
+        update_category_amount(
+            db=db, category_id=transaction_model.category_id, amount=amount_difference
+        )
         create_balance_entry(
             db=db,
             transaction_id=id,
@@ -208,8 +216,11 @@ async def partially_update_transaction(
         setattr(transaction_model, attribute, value)
     # Update the data in database
     db.add(transaction_model)
-    # Create new balance entry if the amount changes
+    # Create new balance entry and update the category
     if amount_changed:
+        update_category_amount(
+            db=db, category_id=transaction_model.category_id, amount=amount_difference
+        )
         create_balance_entry(
             db=db,
             transaction_id=id,
@@ -236,5 +247,9 @@ async def delete_transaction(
         raise HTTPException(status_code=404, detail="Transaction not found")
     # Undo this transaction's balance influence
     create_balance_entry(db=db, transaction_id=id, amount_difference=-transaction_model.amount)
+    # Undo this transaction's category influence
+    update_category_amount(
+        db=db, category_id=transaction_model.category_id, amount=-transaction_model.amount
+    )
     # Delete the transaction
     db.delete(transaction_model)

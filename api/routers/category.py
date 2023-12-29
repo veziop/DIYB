@@ -41,6 +41,16 @@ def create_staging_category() -> None:
         db.add(stage_model)
 
 
+def update_category_amount(db: db_dependency, category_id: int, amount: float):
+    """Update the assigned amount of a category entry with the transaction amount."""
+    # Fetch the category entry
+    category_model = db.query(Category).filter(Category.id == category_id).first()
+    # Update the assigned amount
+    category_model.assigned_amount += amount
+    # Apply the changes to the database
+    db.add(category_model)
+
+
 @router.get("/all", status_code=status.HTTP_200_OK)
 async def read_all_categories(db: db_dependency):
     """
@@ -147,7 +157,7 @@ async def partially_update_category(
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_transaction(
+async def delete_category(
     db: db_dependency,
     id: int = Path(gt=0),
 ):
