@@ -31,7 +31,6 @@ class CategoryPartialRequest(BaseModel):
 
 
 class MoveRequest(BaseModel):
-    id_from: int = Field(gt=0, default=1)
     id_to: int = Field(gt=0)
     amount: Decimal = Field(gt=0, decimal_places=2)
 
@@ -192,18 +191,19 @@ async def delete_category(
     db.delete(category_model)
 
 
-@router.post("/move", status_code=status.HTTP_200_OK)
-async def move_amount(db: db_dependency, move_request: MoveRequest):
+@router.post("/{id}/move", status_code=status.HTTP_200_OK)
+async def move_amount(db: db_dependency, move_request: MoveRequest, id: int = Path(gt=0)):
     """
     Assign or move amounts from one category to another. The passed amount will be deducted
     from the "id_from" category to the "id_to" category.
 
     :param db: (db_dependency) SQLAlchemy ORM session.
-    :param move_request: (MoveRequest) Data containing the "from" category, the "to" category
-     and the amount to move.
+    :param id: (int) ID of the category to move from.
+    :param move_request: (MoveRequest) Data containing the <id_to> category and the amount to
+     move.
     """
     # Fetch the models
-    from_category_model = db.query(Category).filter(Category.id == move_request.id_from).first()
+    from_category_model = db.query(Category).filter(Category.id == id).first()
     to_category_model = db.query(Category).filter(Category.id == move_request.id_to).first()
     if not from_category_model:
         raise HTTPException(status_code=404, detail="<from> category not found")
