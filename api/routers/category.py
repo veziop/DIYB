@@ -4,6 +4,8 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definitions of routes related to the Category model.
 """
+from decimal import Decimal
+
 from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field
 from starlette import status
@@ -26,6 +28,12 @@ class CategoryResponse(CategoryRequest):
 class CategoryPartialRequest(BaseModel):
     title: str = None
     description: str = None
+
+
+class MoveRequest(BaseModel):
+    id_from: int = Field(gt=0, default=1)
+    id_to: int = Field(gt=0)
+    amount: Decimal = Field(gt=0, decimal_places=2)
 
 
 def create_staging_category() -> None:
@@ -182,3 +190,28 @@ async def delete_category(
         db.add(stage_model)
     # Delete the category
     db.delete(category_model)
+
+
+@router.post("/move", status_code=status.HTTP_200_OK)
+async def move_amount(db: db_dependency, move_request: MoveRequest):
+    """
+    Assign or move amounts from one category to another. The passed amount will be deducted
+    from the "id_from" category to the "id_to" category.
+
+    :param db: (db_dependency) SQLAlchemy ORM session.
+    :param move_request: (MoveRequest) Data containing the "from" category, the "to" category
+     and the amount to move.
+    """
+    # Fetch the models
+    from_category_model = db.query(Category).filter(Category.id == move_request.id_from).first()
+    to_category_model = db.query(Category).filter(Category.id == move_request.id_to).first()
+    if not from_category_model:
+        raise HTTPException(status_code=404, detail="<from> category not found")
+    if not to_category_model:
+        raise HTTPException(status_code=404, detail="<to> category not found")
+    # Adjust the amounts
+    from_category_model.assigned_amount -= move_request.amount
+    to_category_model.assigned_amount += move_request.amount
+    # Save the changes
+    db.add(from_category_model)
+    db.add(to_category_model)
