@@ -1,10 +1,10 @@
 """
-filename: balance_router.py
+filename: balance.py
 author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definitions of routes related to the Balance model.
 """
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Path
@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from starlette import status
 
 from api.database import db_dependency
-from api.models import Balance
+from api.models.balance import Balance
 
 router = APIRouter(prefix="/balance", tags=["balance"])
 
@@ -23,7 +23,7 @@ class BalanceResponse(BaseModel):
     transaction_amount_record: float
     running_total: float
     is_current: bool
-    transaction_id: int = Field(min=0)
+    transaction_id: int = Field(gt=0)
 
 
 def create_balance_entry(
@@ -66,7 +66,6 @@ def create_balance_entry(
         transaction_id=transaction_id,
     )
     db.add(balance_model)
-    db.commit()
 
 
 def get_time_based_current(db: db_dependency, _set: bool = False) -> Balance:
@@ -84,7 +83,6 @@ def get_time_based_current(db: db_dependency, _set: bool = False) -> Balance:
     if _set:
         current_balance.is_current = True
         db.add(current_balance)
-        db.commit()
     return current_balance
 
 

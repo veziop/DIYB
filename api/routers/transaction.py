@@ -1,5 +1,5 @@
 """
-filename: transaction_router.py
+filename: transaction.py
 author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definitions of routes related to the Transaction model.
@@ -13,8 +13,9 @@ from sqlalchemy import func
 from starlette import status
 
 from api.database import db_dependency
-from api.models import Balance, Transaction
-from api.routers.balance_router import create_balance_entry
+from api.models.transaction import Transaction
+from api.routers.balance import create_balance_entry
+from api.routers.category import update_category_amount
 
 router = APIRouter(prefix="/transaction", tags=["transaction"])
 
@@ -28,6 +29,7 @@ class TransactionRequest(BaseModel):
     transaction_date: date = Field(default=date.today())
     description: str = Field(max_length=100)
     amount: Decimal = Field(decimal_places=2)
+    category_id: int = Field(gt=0)
 
 
 class TransactionPartialRequest(BaseModel):
@@ -40,6 +42,7 @@ class TransactionPartialRequest(BaseModel):
     transaction_date: date = None
     description: str = None
     amount: Decimal = None
+    category_id: int = None
 
 
 class TransactionResponse(BaseModel):
@@ -54,6 +57,7 @@ class TransactionResponse(BaseModel):
     last_update_datetime: datetime
     description: str
     amount: float
+    category_id: int
 
 
 @router.get("/all", status_code=status.HTTP_200_OK, response_model=list[TransactionResponse])
@@ -87,13 +91,20 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
         transaction entry.
     """
     # Discard microseconds from the time data
-    transaction_request_data = transaction_request.dict()
+    transaction_request_data = transaction_request.model_dump()
     transaction_request_data["creation_datetime"] = datetime.now().replace(microsecond=0)
     transaction_request_data["last_update_datetime"] = datetime.now().replace(microsecond=0)
     # Create the transaction model
     transaction_model = Transaction(**transaction_request_data)
+    # If money inflow, overwrite the default 'stage' category
+    if transaction_model.amount > 0:
+        transaction_model.category_id = 1
+    # Add the model to the database
     db.add(transaction_model)
-    db.commit()
+    # Update the category entry's amount
+    update_category_amount(
+        db=db, category_id=transaction_model.category_id, amount=transaction_model.amount
+    )
     # Create the balance model
     create_balance_entry(
         db=db,
@@ -149,9 +160,11 @@ async def update_transaction(
     transaction_model.amount = transaction_request.amount
     # Confirm the changes
     db.add(transaction_model)
-    db.commit()
-    # Create new balance entry
+    # Create new balance entry and update the category
     if amount_changed:
+        update_category_amount(
+            db=db, category_id=transaction_model.category_id, amount=amount_difference
+        )
         create_balance_entry(
             db=db,
             transaction_id=id,
@@ -180,7 +193,7 @@ async def partially_update_transaction(
     if not transaction_model:
         raise HTTPException(status_code=404, detail="Transaction not found")
     # Collect attributes to modify
-    update_data = new_data.dict(exclude_unset=True)
+    update_data = new_data.model_dump(exclude_unset=True)
     # Detect changes to the amount
     amount_changed = "amount" in update_data
     amount_difference = update_data.get("amount", 0) - transaction_model.amount
@@ -203,9 +216,11 @@ async def partially_update_transaction(
         setattr(transaction_model, attribute, value)
     # Update the data in database
     db.add(transaction_model)
-    db.commit()
-    # Create new balance entry if the amount changes
+    # Create new balance entry and update the category
     if amount_changed:
+        update_category_amount(
+            db=db, category_id=transaction_model.category_id, amount=amount_difference
+        )
         create_balance_entry(
             db=db,
             transaction_id=id,
@@ -232,6 +247,9 @@ async def delete_transaction(
         raise HTTPException(status_code=404, detail="Transaction not found")
     # Undo this transaction's balance influence
     create_balance_entry(db=db, transaction_id=id, amount_difference=-transaction_model.amount)
+    # Undo this transaction's category influence
+    update_category_amount(
+        db=db, category_id=transaction_model.category_id, amount=-transaction_model.amount
+    )
     # Delete the transaction
     db.delete(transaction_model)
-    db.commit()
