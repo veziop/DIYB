@@ -31,6 +31,3 @@ app.include_router(category_router)
 models.Base.metadata.create_all(bind=engine)
 
 create_staging_category()
-
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port="8080")
