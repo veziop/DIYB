@@ -9,6 +9,7 @@ from fastapi import FastAPI
 
 from api import models
 from api.database import engine
+from api.routers.account import router as account_router
 from api.routers.balance import router as balance_router
 from api.routers.category import create_staging_category
 from api.routers.category import router as category_router
@@ -27,10 +28,8 @@ app = FastAPI(
 app.include_router(transaction_router)
 app.include_router(balance_router)
 app.include_router(category_router)
+app.include_router(account_router)
 
 models.Base.metadata.create_all(bind=engine)
 
 create_staging_category()
-
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port="8080")

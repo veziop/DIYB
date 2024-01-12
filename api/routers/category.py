@@ -110,7 +110,7 @@ async def update_category(
     Endpoint to modify an existing category entry from the database.
 
     :param db: (db_dependency) SQLAlchemy ORM session.
-    :param category_request: (CategoryRequest) data to be used to update the transaction
+    :param category_request: (CategoryRequest) data to be used to update the category
         entry.
     :param id: (int) ID of the category entry.
     """
