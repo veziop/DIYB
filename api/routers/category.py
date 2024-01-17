@@ -58,7 +58,7 @@ def update_category_amount(db: db_dependency, category_id: int, amount: float):
     db.add(category_model)
 
 
-@router.get("/all", status_code=status.HTTP_200_OK)
+@router.get("/all", status_code=status.HTTP_200_OK, response_model=list[CategoryResponse])
 async def read_all_categories(db: db_dependency):
     """
     Endpoint to fetch all category entries from the database.

@@ -28,5 +28,5 @@ class Account(Base):
         String(4),
         unique=True,
         nullable=True,
-        doc="Last four digits of the IBAN to help identification",
+        doc="(optional) Last four digits of the IBAN to help identification",
     )

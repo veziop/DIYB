@@ -4,6 +4,8 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definitions of routes related to the Account model.
 """
+from typing import Union
+
 from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field
 from starlette import status
@@ -21,7 +23,9 @@ class AccountRequest(BaseModel):
 
 
 class AccountResponse(AccountRequest):
-    pass
+    name: str
+    description: str
+    ibal_trail: Union[str, None] = None  # TODO CONTINUE FROM HERE
 
 
 class AccountPartialRequest(BaseModel):
@@ -30,7 +34,7 @@ class AccountPartialRequest(BaseModel):
     iban_tail: str = None
 
 
-@router.get("/all", status_code=status.HTTP_200_OK)
+@router.get("/all", status_code=status.HTTP_200_OK, response_model=list[AccountResponse])
 async def read_all_accounts(db: db_dependency):
     """
     Endpoint to retrieve all account entries from the database.
@@ -46,8 +50,7 @@ async def create_account(db: db_dependency, account_request: AccountRequest):
     Endpoint to create an account entry the database.
 
     :param db: (db_dependency) SQLAlchemy ORM session.
-    :param account_request: (AccountRequest) data to be used to create the account
-        entry.
+    :param account_request: (AccountRequest) data to be used to create the account entry.
     """
     # Create the model
     account_model = Account(**account_request.model_dump())
@@ -129,12 +132,12 @@ async def partially_update_account(
         match attribute:
             case "title":
                 if len(value) > 40:
-                    raise ValueError("Attr <title> must be less than 30 character in length.")
+                    raise ValueError("Attr <title> must be less than 30 character in length")
                 if len(value) < 2:
-                    raise ValueError("Attr <title> must be at least 2 character in length.")
+                    raise ValueError("Attr <title> must be at least 2 character in length")
             case "description":
                 if len(value) > 100:
-                    raise ValueError("Attr <description> cannot be over 100 characters.")
+                    raise ValueError("Attr <description> cannot be over 100 characters")
         setattr(account_model, attribute, value)
     # Update the data in database
     db.add(account_model)
@@ -156,5 +159,10 @@ async def delete_account(
     # If not found raise exception
     if not account_model:
         raise HTTPException(status_code=404, detail="Account not found")
+    # If last account then abort deletion
+    if len(db.query(Account).all()) == 1:
+        raise HTTPException(
+            status_code=503, detail="Cannot delete last account entry in the database"
+        )
     # Delete the category
-    db.delete(category_model)
+    db.delete(account_model)
