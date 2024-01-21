@@ -4,8 +4,6 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definitions of routes related to the Account model.
 """
-from typing import Union
-
 from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field
 from starlette import status
@@ -19,13 +17,13 @@ router = APIRouter(prefix="/account", tags=["account"])
 class AccountRequest(BaseModel):
     name: str = Field(min_length=2, max_length=30)
     description: str = Field(max_length=100)
-    iban_tail: str = Field(None, max_length=4, pattern="[0-9]{4}")
+    iban_tail: str | None = Field(default=None, pattern="^[0-9]{4}$")
 
 
-class AccountResponse(AccountRequest):
+class AccountResponse(BaseModel):
     name: str
     description: str
-    ibal_trail: Union[str, None] = None  # TODO CONTINUE FROM HERE
+    iban_tail: str | None = None
 
 
 class AccountPartialRequest(BaseModel):
@@ -34,7 +32,12 @@ class AccountPartialRequest(BaseModel):
     iban_tail: str = None
 
 
-@router.get("/all", status_code=status.HTTP_200_OK, response_model=list[AccountResponse])
+@router.get(
+    "/all",
+    status_code=status.HTTP_200_OK,
+    response_model=list[AccountResponse],
+    response_model_exclude_defaults=True,
+)
 async def read_all_accounts(db: db_dependency):
     """
     Endpoint to retrieve all account entries from the database.
@@ -66,7 +69,12 @@ async def create_account(db: db_dependency, account_request: AccountRequest):
     db.add(account_model)
 
 
-@router.get("/{id}", status_code=status.HTTP_200_OK, response_model=AccountResponse)
+@router.get(
+    "/{id}",
+    status_code=status.HTTP_200_OK,
+    response_model=AccountResponse,
+    response_model_exclude_unset=True,
+)
 async def get_account(db: db_dependency, id: int = Path(gt=0)):
     """
     Endpoint to retrieve an existing account entry from the database.
