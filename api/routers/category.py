@@ -26,8 +26,8 @@ class CategoryResponse(CategoryRequest):
 
 
 class CategoryPartialRequest(BaseModel):
-    title: str = None
-    description: str = None
+    title: str | None = Field(default=None, min_length=2, max_length=40)
+    description: str | None = Field(default=None, max_length=100)
 
 
 class MoveRequest(BaseModel):
@@ -147,17 +147,8 @@ async def partially_update_category(
         raise HTTPException(status_code=404, detail="Category not found")
     # Collect attributes to modify
     update_data = new_data.model_dump(exclude_unset=True)
-    # Manual validation as pydantic partial model had none
+    # Update the model with the new data
     for attribute, value in update_data.items():
-        match attribute:
-            case "title":
-                if len(value) > 40:
-                    raise ValueError("Attr <title> must be less than 30 character in length.")
-                if len(value) < 2:
-                    raise ValueError("Attr <title> must be at least 2 character in length.")
-            case "description":
-                if len(value) > 100:
-                    raise ValueError("Attr <description> cannot be over 100 characters.")
         setattr(category_model, attribute, value)
     # Update the data in database
     db.add(category_model)

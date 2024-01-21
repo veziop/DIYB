@@ -6,9 +6,10 @@ description: Module for the definitions of routes related to the Transaction mod
 """
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, condecimal
 from sqlalchemy import func
 from starlette import status
 
@@ -38,11 +39,11 @@ class TransactionPartialRequest(BaseModel):
     default values to all attributes, thus allowing only some attributes to be submitted.
     """
 
-    payee: str = None
-    transaction_date: date = None
-    description: str = None
-    amount: Decimal = None
-    category_id: int = None
+    payee: str | None = Field(default=None, min_length=1)
+    transaction_date: date | None = Field(default=date.today())
+    description: str | None = Field(default=None, max_length=100)
+    amount: Annotated[condecimal(decimal_places=2) | None, Field(default=None)]
+    category_id: int | None = Field(default=None, gt=0)
 
 
 class TransactionResponse(BaseModel):
@@ -197,22 +198,9 @@ async def partially_update_transaction(
     # Detect changes to the amount
     amount_changed = "amount" in update_data
     amount_difference = update_data.get("amount", 0) - transaction_model.amount
-    # Update the entry
+    # Update the model with the new data
     transaction_model.last_update_datetime = datetime.now().replace(microsecond=0)
     for attribute, value in update_data.items():
-        match attribute:
-            case "payee":
-                if len(value) < 2:
-                    raise ValueError("Attr <payee> must be at least a character in length.")
-            case "transaction_date":
-                if value > date.today():
-                    raise ValueError("Attr <transaction_date> cannot be in the future")
-            case "description":
-                if len(value) > 100:
-                    raise ValueError("Attr <description> cannot be over 100 characters.")
-            case "amount":
-                if value.as_tuple().exponent < -2:
-                    raise ValueError("Attr <amount> cannot have more than two decimal places.")
         setattr(transaction_model, attribute, value)
     # Update the data in database
     db.add(transaction_model)
