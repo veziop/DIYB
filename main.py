@@ -4,7 +4,6 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Project's root module.
 """
-import uvicorn
 from fastapi import FastAPI
 
 from api import models
