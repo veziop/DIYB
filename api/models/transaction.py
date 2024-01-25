@@ -50,3 +50,8 @@ class Transaction(Base):
         ForeignKey("category.id"),
         doc="Foreign key link to the category to which the transaction entry is bound to",
     )
+    account_id = Column(
+        Integer,
+        ForeignKey("account.id"),
+        doc="Foreign key link to the bank account associated to this balance entry",
+    )
