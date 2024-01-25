@@ -22,7 +22,8 @@ class CategoryRequest(BaseModel):
 
 
 class CategoryResponse(CategoryRequest):
-    pass
+    id: int
+    assigned_amount: float = Field(ge=0)
 
 
 class CategoryPartialRequest(BaseModel):
@@ -48,7 +49,7 @@ def create_staging_category() -> None:
         db.add(stage_model)
 
 
-def update_category_amount(db: db_dependency, category_id: int, amount: float):
+def update_category_amount(db: db_dependency, category_id: int, amount: float) -> None:
     """Update the assigned amount of a category entry with the transaction amount."""
     # Fetch the category entry
     category_model = db.query(Category).filter(Category.id == category_id).first()
@@ -200,6 +201,7 @@ async def move_amount(db: db_dependency, move_request: MoveRequest, id: int = Pa
         raise HTTPException(status_code=404, detail="<from> category not found")
     if not to_category_model:
         raise HTTPException(status_code=404, detail="<to> category not found")
+    # TODO Halt if remaining is negative
     # Adjust the amounts
     from_category_model.assigned_amount -= move_request.amount
     to_category_model.assigned_amount += move_request.amount
