@@ -159,9 +159,9 @@ async def delete_account(
     if not account_model:
         raise HTTPException(status_code=404, detail="Account not found")
     # If last account then abort deletion
-    if len(db.query(Account).all()) == 1:
+    if db.query(Account).count() == 1:
         raise HTTPException(
-            status_code=503, detail="Cannot delete last account entry in the database"
+            status_code=403, detail="Cannot delete last account entry in the database"
         )
     # Delete the category
     db.delete(account_model)

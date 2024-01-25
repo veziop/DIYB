@@ -39,7 +39,7 @@ class MoveRequest(BaseModel):
 def create_staging_category() -> None:
     """Create the main category from which to assign to all others."""
     with sql_session() as db:
-        categories = db.query(Category).all()
+        categories = db.query(Category).count()
         if categories:
             return
         stage_model = Category(
