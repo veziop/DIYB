@@ -32,6 +32,16 @@ class AccountPartialRequest(BaseModel):
     iban_tail: str | None = Field(default=None, max_length=4, pattern="^[0-9]{4}$")
 
 
+def create_current_account():
+    """Create the 'current' account as the default account"""
+    with sql_session() as db:
+        accounts = db.query(Account).count()
+        if accounts:
+            return
+        current = Account(name="current", description="default account", iban_tail=None)
+        db.add(current)
+
+
 @router.get(
     "/all",
     status_code=status.HTTP_200_OK,
