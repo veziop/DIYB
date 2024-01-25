@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Path
-from pydantic import BaseModel, Field, condecimal
+from pydantic import BaseModel, Field, condecimal, validator
 from sqlalchemy import func
 from starlette import status
 
@@ -31,12 +31,28 @@ class TransactionRequest(BaseModel):
     description: str = Field(max_length=100)
     amount: Decimal = Field(decimal_places=2)
     category_id: int = Field(gt=0)
+    account_id: int = Field(gt=0)
+
+    @validator("transaction_date")
+    def validate_not_future_date(cls, value: date):
+        """Validate that the date set as the transaction date is not set in the future"""
+        if value > date.today():
+            raise ValueError("Date cannot be in the future")
+        return value
+
+    @validator("amount")
+    def validate_amount_not_zero(cls, value: Decimal):
+        """Validate that the amount has some positive or negative value, but not zero"""
+        if value == Decimal(0):
+            raise ValueError("Amount cannot be zero")
+        return value
 
 
-class TransactionPartialRequest(BaseModel):
+class TransactionPartialRequest(TransactionRequest):
     """
     Separate request model for partial updates. This distinction is needed for assigning
     default values to all attributes, thus allowing only some attributes to be submitted.
+    Furthermore, model inheritance will reuse the validators.
     """
 
     payee: str | None = Field(default=None, min_length=1)
@@ -104,6 +120,8 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
         transaction_model.category_id = 1
     # Add the model to the database
     db.add(transaction_model)
+    # Flush the session so to get access to the id before the row is commited
+    db.flush()
     # Update the category entry's amount
     update_category_amount(
         db=db, category_id=transaction_model.category_id, amount=transaction_model.amount
