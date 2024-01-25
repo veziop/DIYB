@@ -9,6 +9,7 @@ from fastapi import FastAPI
 
 from api import models
 from api.database import engine
+from api.routers.account import create_current_account
 from api.routers.account import router as account_router
 from api.routers.balance import router as balance_router
 from api.routers.category import create_staging_category
@@ -32,4 +33,6 @@ app.include_router(account_router)
 
 models.Base.metadata.create_all(bind=engine)
 
+# Populate tables with defaults
+create_current_account()
 create_staging_category()
