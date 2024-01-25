@@ -44,6 +44,7 @@ class TransactionPartialRequest(BaseModel):
     description: str | None = Field(default=None, max_length=100)
     amount: Annotated[condecimal(decimal_places=2) | None, Field(default=None)]
     category_id: int | None = Field(default=None, gt=0)
+    account_id: int | None = Field(default=None, gt=0)
 
 
 class TransactionResponse(BaseModel):
@@ -59,6 +60,7 @@ class TransactionResponse(BaseModel):
     description: str
     amount: float
     category_id: int
+    account_id: int
 
 
 @router.get("/all", status_code=status.HTTP_200_OK, response_model=list[TransactionResponse])
@@ -159,6 +161,8 @@ async def update_transaction(
     transaction_model.last_update_datetime = datetime.now().replace(microsecond=0)
     transaction_model.description = transaction_request.description
     transaction_model.amount = transaction_request.amount
+    transaction_model.category_id = transaction_request.category_id
+    transaction_model.account_id = transaction_request.account_id
     # Confirm the changes
     db.add(transaction_model)
     # Create new balance entry and update the category
