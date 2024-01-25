@@ -9,6 +9,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 from starlette import status
 
 from api.database import db_dependency
@@ -27,7 +28,7 @@ class BalanceResponse(BaseModel):
 
 
 def create_balance_entry(
-    db: db_dependency,
+    db: Session,
     transaction_id: int,
     amount_difference: Decimal,
     transaction_amount: float = None,
@@ -37,10 +38,11 @@ def create_balance_entry(
     deliberately not an endpoint as creating a balance entry directly is not allowed. It must
     derive from creating, updating or deleting a transaction entry.
 
-    :param db: (db_dependency) SQLAlchemy ORM session.
+    :param db: (Session) SQLAlchemy ORM session.
     :param transaction_id: (int) ID of the transaction entry.
     :param amount_difference: (Decimal) amount to adjust the current balance with.
-    :param transaction_amount:
+    :param transaction_amount: (float) optional, new transaction amount for updating existing
+     transactions.
     :returns: None
     """
     # Fetch the current total
@@ -68,12 +70,12 @@ def create_balance_entry(
     db.add(balance_model)
 
 
-def get_time_based_current(db: db_dependency, _set: bool = False) -> Balance:
+def get_time_based_current(db: Session, _set: bool = False) -> Balance:
     """
     Auxiliary function (in the case where no row has the <is_current> flag) to retrieve the
     running total based on the most current <entry_datetime> date and time.
 
-    :param db: (db_dependency) SQLAlchemy ORM session.
+    :param db: (Session) SQLAlchemy ORM session.
     :param _set: (bool) optional; if True overwrite the <is_current> flag.
     :returns: (Balance) entry that is deemed as most recent.
     """
