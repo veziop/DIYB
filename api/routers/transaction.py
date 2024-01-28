@@ -30,8 +30,8 @@ class TransactionRequest(BaseModel):
     transaction_date: date = Field(default=date.today())
     description: str = Field(max_length=100)
     amount: Decimal = Field(decimal_places=2)
-    category_id: int = Field(gt=0)
-    account_id: int = Field(gt=0)
+    category_id: int = Field(default=1, gt=0)
+    account_id: int = Field(default=1, gt=0)
 
     @validator("transaction_date")
     def validate_not_future_date(cls, value: date):
@@ -118,9 +118,14 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
     # If money inflow, overwrite the default 'stage' category
     if transaction_model.amount > 0:
         transaction_model.category_id = 1
+    # If money outflow, halt if the category is the 'stage'category
+    if transaction_model.amount < 0 and transaction_model.category_id == 1:
+        raise HTTPException(
+            status_code=403, detail="Cannot have money outflow from 'stage' category"
+        )
     # Add the model to the database
     db.add(transaction_model)
-    # Flush the session so to get access to the id before the row is commited
+    # Flush the session so to get access to the id before the entry is commited
     db.flush()
     # Update the category entry's amount
     update_category_amount(
@@ -170,6 +175,11 @@ async def update_transaction(
     # If not found raise exception
     if not transaction_model:
         raise HTTPException(status_code=404, detail="Transaction not found")
+    # If money outflow, halt if the category is the 'stage'category
+    if transaction_request.amount < 0 and transaction_request.category_id == 1:
+        raise HTTPException(
+            status_code=403, detail="Cannot have money outflow from 'stage' category"
+        )
     # Detect changes to the amount
     amount_changed = transaction_model.amount != transaction_request.amount
     amount_difference = transaction_request.amount - transaction_model.amount
@@ -199,7 +209,7 @@ async def update_transaction(
 @router.patch("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def partially_update_transaction(
     db: db_dependency,
-    new_data: TransactionPartialRequest,
+    transaction_partial_request: TransactionPartialRequest,
     id: int = Path(gt=0),
 ):
     """
@@ -216,7 +226,14 @@ async def partially_update_transaction(
     if not transaction_model:
         raise HTTPException(status_code=404, detail="Transaction not found")
     # Collect attributes to modify
-    update_data = new_data.model_dump(exclude_unset=True)
+    update_data = transaction_partial_request.model_dump(exclude_unset=True)
+    # If money outflow, halt if the category is the 'stage'category
+    if (update_data.get("amount", 0) < 0 or transaction_model.amount < 0) and (
+        update_data.get("category_id", 0) == 1 or transaction_model.category_id == 1
+    ):
+        raise HTTPException(
+            status_code=403, detail="Cannot have money outflow from 'stage' category"
+        )
     # Detect changes to the amount
     amount_changed = "amount" in update_data
     amount_difference = update_data.get("amount", 0) - transaction_model.amount
