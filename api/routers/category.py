@@ -32,7 +32,7 @@ class CategoryPartialRequest(BaseModel):
 
 
 class MoveRequest(BaseModel):
-    id_to: int = Field(gt=0)
+    id_to: int = Field(default=2, gt=0)
     amount: Decimal = Field(gt=0, decimal_places=2)
 
 
@@ -201,7 +201,11 @@ async def move_amount(db: db_dependency, move_request: MoveRequest, id: int = Pa
         raise HTTPException(status_code=404, detail="<from> category not found")
     if not to_category_model:
         raise HTTPException(status_code=404, detail="<to> category not found")
-    # TODO Halt if remaining is negative
+    # Halt if remaining is negative
+    if from_category_model.assigned_amount - move_request.amount < 0:
+        raise HTTPException(
+            status_code=403, detail="Move request would result in negative amount"
+        )
     # Adjust the amounts
     from_category_model.assigned_amount -= move_request.amount
     to_category_model.assigned_amount += move_request.amount
