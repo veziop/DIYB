@@ -10,6 +10,8 @@ from starlette import status
 
 from api.database import db_dependency, sql_session
 from api.models.account import Account
+from api.models.balance import Balance
+from api.models.transaction import Transaction
 
 router = APIRouter(prefix="/account", tags=["account"])
 
@@ -20,10 +22,9 @@ class AccountRequest(BaseModel):
     iban_tail: str | None = Field(default=None, pattern="^[0-9]{4}$")
 
 
-class AccountResponse(BaseModel):
-    name: str
-    description: str
-    iban_tail: str | None = None
+class AccountResponse(AccountRequest):
+    id: int
+    running_total: float | None = None
 
 
 class AccountPartialRequest(BaseModel):
@@ -54,7 +55,24 @@ async def read_all_accounts(db: db_dependency):
 
     :param db: (db_dependency) SQLAlchemy ORM session.
     """
-    return db.query(Account).all()
+    accounts = [
+        {
+            "id": account.id,
+            "name": account.name,
+            "description": account.description,
+            "iban_tail": account.iban_tail if account.iban_tail else None,
+            "running_total": getattr(
+                db.query(Balance)
+                .join(Transaction)
+                .filter(Balance.is_current, Transaction.account_id == account.id)
+                .first(),
+                "running_total",
+                None,
+            ),
+        }
+        for account in db.query(Account).all()
+    ]
+    return [{key: value for key, value in account.items() if value} for account in accounts]
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
@@ -96,7 +114,21 @@ async def get_account(db: db_dependency, id: int = Path(gt=0)):
     account_model = db.query(Account).filter(Account.id == id).first()
     # Return the model if found
     if account_model:
-        return account_model
+        account = {
+            "id": account_model.id,
+            "name": account_model.name,
+            "description": account_model.description,
+            "iban_tail": account_model.iban_tail,
+            "running_total": getattr(
+                db.query(Balance)
+                .join(Transaction)
+                .filter(Balance.is_current, Transaction.account_id == id)
+                .first(),
+                "running_total",
+                None,
+            ),
+        }
+        return {key: value for key, value in account.items() if value}
     raise HTTPException(status_code=404, detail="Account not found")
 
 
