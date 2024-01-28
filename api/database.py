@@ -26,7 +26,7 @@ def get_db():
         db.rollback()
         raise HTTPException(
             status_code=e.status_code,
-            detail={"message": e.detail.message},
+            detail={"message": e.detail},
         )
     finally:
         db.close()
