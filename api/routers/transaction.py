@@ -135,6 +135,7 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
     create_balance_entry(
         db=db,
         transaction_id=transaction_model.id,
+        account_id=transaction_model.account_id,
         amount_difference=transaction_model.amount,
     )
 
@@ -201,6 +202,7 @@ async def update_transaction(
         create_balance_entry(
             db=db,
             transaction_id=id,
+            account_id=transaction_model.account_id,
             amount_difference=amount_difference,
             transaction_amount=transaction_request.amount,
         )
@@ -251,6 +253,7 @@ async def partially_update_transaction(
         create_balance_entry(
             db=db,
             transaction_id=id,
+            account_id=transaction_model.account_id,
             amount_difference=amount_difference,
             transaction_amount=update_data.get("amount"),
         )
@@ -273,7 +276,12 @@ async def delete_transaction(
     if not transaction_model:
         raise HTTPException(status_code=404, detail="Transaction not found")
     # Undo this transaction's balance influence
-    create_balance_entry(db=db, transaction_id=id, amount_difference=-transaction_model.amount)
+    create_balance_entry(
+        db=db,
+        transaction_id=id,
+        account_id=transaction_model.account_id,
+        amount_difference=-transaction_model.amount,
+    )
     # Undo this transaction's category influence
     update_category_amount(
         db=db, category_id=transaction_model.category_id, amount=-transaction_model.amount
