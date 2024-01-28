@@ -25,8 +25,8 @@ def get_db():
     except Exception as e:
         db.rollback()
         raise HTTPException(
-            status_code=e.status_code,
-            detail={"message": e.detail},
+            status_code=getattr(e, "status_code", 500),
+            detail={"message": getattr(e, "detail", str(e))},
         )
     finally:
         db.close()
