@@ -53,5 +53,5 @@ class Transaction(Base):
     account_id = Column(
         Integer,
         ForeignKey("account.id"),
-        doc="Foreign key link to the bank account associated to this balance entry",
+        doc="Foreign key link to the bank account associated to this transaction entry",
     )
