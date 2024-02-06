@@ -58,9 +58,13 @@ def create_balance_entry(
     else:
         current_total = Decimal(0)
     # Overwrite all entries as not current
-    db.query(Balance).join(Transaction).filter(Transaction.account_id == account_id).update(
-        {Balance.is_current: False}
+    entries = (
+        db.query(Balance).join(Transaction).filter(Transaction.account_id == account_id).all()
     )
+    if entries:
+        db.query(Balance).filter(Balance.id.in_(entry.id for entry in entries)).update(
+            {Balance.is_current: False}
+        )
     # Create the balance model
     balance_model = Balance(
         entry_datetime=datetime.now().replace(microsecond=0),
