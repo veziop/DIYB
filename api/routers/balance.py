@@ -4,6 +4,7 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definitions of routes related to the Balance model.
 """
+
 from datetime import datetime
 from decimal import Decimal
 
@@ -48,7 +49,12 @@ def create_balance_entry(
     :returns: None
     """
     # Fetch the current total
-    current_total_entry = db.query(Balance).filter(Balance.is_current).first()
+    current_total_entry = (
+        db.query(Balance)
+        .join(Transaction)
+        .filter(Transaction.account_id == account_id, Balance.is_current)
+        .first()
+    )
     # Determine latest balance entry by date/time if no entry is found
     if not current_total_entry:
         current_total_entry = get_time_based_current(db, account_id=account_id, _set=False)
