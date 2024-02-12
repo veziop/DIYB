@@ -4,6 +4,7 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definitions of routes related to the Transaction model.
 """
+
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated
@@ -14,6 +15,8 @@ from sqlalchemy import func
 from starlette import status
 
 from api.database import db_dependency
+from api.models.account import Account
+from api.models.category import Category
 from api.models.transaction import Transaction
 from api.routers.balance import create_balance_entry
 from api.routers.category import update_category_amount
@@ -113,6 +116,23 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
     transaction_request_data = transaction_request.model_dump()
     transaction_request_data["creation_datetime"] = datetime.now().replace(microsecond=0)
     transaction_request_data["last_update_datetime"] = datetime.now().replace(microsecond=0)
+    # Abort if no account is found
+    account = (
+        db.query(Account).filter(Account.id == transaction_request_data["account_id"]).first()
+    )
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    # Abort if no category is found
+    category = (
+        db.query(Category)
+        .filter(Category.id == transaction_request_data["category_id"])
+        .first()
+    )
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    # Abort if the operation results in a negative category amount
+    if transaction_request_data["amount"] + category.assigned_amount < 0:
+        raise HTTPException(status_code=400, detail="Category amount would become negative")
     # Create the transaction model
     transaction_model = Transaction(**transaction_request_data)
     # If money inflow, overwrite the default 'stage' category
@@ -181,6 +201,9 @@ async def update_transaction(
         raise HTTPException(
             status_code=403, detail="Cannot have money outflow from 'stage' category"
         )
+    # Abort if no account is found
+    if not db.query(Account).filter(Account.id == transaction_request["account_id"]).count():
+        raise HTTPException(status_code=404, detail="Account not found")
     # Detect changes to the amount
     amount_changed = transaction_model.amount != transaction_request.amount
     amount_difference = transaction_request.amount - transaction_model.amount
@@ -229,6 +252,12 @@ async def partially_update_transaction(
         raise HTTPException(status_code=404, detail="Transaction not found")
     # Collect attributes to modify
     update_data = transaction_partial_request.model_dump(exclude_unset=True)
+    # Abort if no account is found
+    if (
+        update_data.get("account_id")
+        and not db.query(Account).filter(Account.id == update_data["account_id"]).count()
+    ):
+        raise HTTPException(status_code=404, detail="Account not found")
     # If money outflow, halt if the category is the 'stage'category
     if (update_data.get("amount", 0) < 0 or transaction_model.amount < 0) and (
         update_data.get("category_id", 0) == 1 or transaction_model.category_id == 1
