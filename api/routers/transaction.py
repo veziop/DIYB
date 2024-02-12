@@ -123,16 +123,18 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
     # Abort if no category is found
-    category = (
+    category_model = (
         db.query(Category)
         .filter(Category.id == transaction_request_data["category_id"])
         .first()
     )
-    if not category:
+    if not category_model:
         raise HTTPException(status_code=404, detail="Category not found")
     # Abort if the operation results in a negative category amount
-    if transaction_request_data["amount"] + category.assigned_amount < 0:
-        raise HTTPException(status_code=400, detail="Category amount would become negative")
+    if transaction_request_data["amount"] + category_model.assigned_amount < 0:
+        raise HTTPException(
+            status_code=400, detail="Category assigned amount would become negative"
+        )
     # Create the transaction model
     transaction_model = Transaction(**transaction_request_data)
     # If money inflow, overwrite the default 'stage' category
@@ -193,20 +195,31 @@ async def update_transaction(
     """
     # Fetch the model
     transaction_model = db.query(Transaction).filter(Transaction.id == id).first()
-    # If not found raise exception
+    # Abort if no transaction is found
     if not transaction_model:
         raise HTTPException(status_code=404, detail="Transaction not found")
+    # Abort if no category is found
+    category_model = (
+        db.query(Category).filter(Category.id == transaction_request.category_id).first()
+    )
+    if not category_model:
+        raise HTTPException(status_code=404, detail="Category not found")
     # If money outflow, halt if the category is the 'stage'category
     if transaction_request.amount < 0 and transaction_request.category_id == 1:
         raise HTTPException(
             status_code=403, detail="Cannot have money outflow from 'stage' category"
         )
     # Abort if no account is found
-    if not db.query(Account).filter(Account.id == transaction_request["account_id"]).count():
+    if not db.query(Account).filter(Account.id == transaction_request.account_id).count():
         raise HTTPException(status_code=404, detail="Account not found")
     # Detect changes to the amount
     amount_changed = transaction_model.amount != transaction_request.amount
     amount_difference = transaction_request.amount - transaction_model.amount
+    # Abort if the result of the operation is a negative category assigned_amount
+    if category_model.assigned_amount + amount_difference < 0:
+        raise HTTPException(
+            status_code=400, detail="Category assigned amount would become negative"
+        )
     # Modify the existing data
     transaction_model.payee = transaction_request.payee
     transaction_model.transaction_date = transaction_request.transaction_date
@@ -247,7 +260,7 @@ async def partially_update_transaction(
     """
     # Fetch the model
     transaction_model = db.query(Transaction).filter(Transaction.id == id).first()
-    # If not found raise exception
+    # Abort if no transaction is found
     if not transaction_model:
         raise HTTPException(status_code=404, detail="Transaction not found")
     # Collect attributes to modify
@@ -258,6 +271,16 @@ async def partially_update_transaction(
         and not db.query(Account).filter(Account.id == update_data["account_id"]).count()
     ):
         raise HTTPException(status_code=404, detail="Account not found")
+    # Abort if no category is found
+    category_model = (
+        db.query(Category)
+        .filter(Category.id == transaction_partial_request.category_id)
+        .first()
+        if update_data.get("category_id")
+        else db.query(Category).filter(Category.id == transaction_model.category_id).first()
+    )
+    if update_data.get("category_id") and not category_model:
+        raise HTTPException(status_code=404, detail="Category not found")
     # If money outflow, halt if the category is the 'stage'category
     if (update_data.get("amount", 0) < 0 or transaction_model.amount < 0) and (
         update_data.get("category_id", 0) == 1 or transaction_model.category_id == 1
@@ -268,6 +291,11 @@ async def partially_update_transaction(
     # Detect changes to the amount
     amount_changed = "amount" in update_data
     amount_difference = update_data.get("amount", 0) - transaction_model.amount
+    # Abort if the result of the operation is a negative category assigned_amount
+    if amount_changed and category_model.assigned_amount + amount_difference < 0:
+        raise HTTPException(
+            status_code=400, detail="Category assigned amount would become negative"
+        )
     # Update the model with the new data
     transaction_model.last_update_datetime = datetime.now().replace(microsecond=0)
     for attribute, value in update_data.items():
