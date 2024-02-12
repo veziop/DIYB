@@ -4,6 +4,7 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definitions of routes related to the Category model.
 """
+
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Path
@@ -21,9 +22,11 @@ class CategoryRequest(BaseModel):
     description: str = Field(max_length=100)
 
 
-class CategoryResponse(CategoryRequest):
+class CategoryResponse(BaseModel):
     id: int
-    assigned_amount: float = Field(ge=0)
+    title: str
+    description: str
+    assigned_amount: float
 
 
 class CategoryPartialRequest(BaseModel):

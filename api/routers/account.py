@@ -4,6 +4,7 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definitions of routes related to the Account model.
 """
+
 from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field
 from starlette import status
@@ -18,12 +19,15 @@ router = APIRouter(prefix="/account", tags=["account"])
 
 class AccountRequest(BaseModel):
     name: str = Field(min_length=2, max_length=30)
-    description: str = Field(max_length=100)
+    description: str = Field(default="", max_length=100)
     iban_tail: str | None = Field(default=None, pattern="^[0-9]{4}$")
 
 
-class AccountResponse(AccountRequest):
+class AccountResponse(BaseModel):
     id: int
+    name: str
+    description: str | None = None
+    iban_tail: str | None = None
     running_total: float | None = None
 
 
@@ -86,13 +90,13 @@ async def create_account(db: db_dependency, account_request: AccountRequest):
     # Create the model
     account_model = Account(**account_request.model_dump())
     # Raise exception if values for <name> or <iban_tail> are not unique
-    if db.query(Account).filter(Account.name == account_model.name).first():
-        raise HTTPException(status_code=503, detail="Account name not unique")
+    if db.query(Account).filter(Account.name == account_model.name).count():
+        raise HTTPException(status_code=400, detail="Account name not unique")
     if (
         account_model.iban_tail
-        and db.query(Account).filter(Account.iban_tail == account_model.iban_tail).first()
+        and db.query(Account).filter(Account.iban_tail == account_model.iban_tail).count()
     ):
-        raise HTTPException(status_code=503, detail="Account IBAN not unique")
+        raise HTTPException(status_code=400, detail="Account IBAN not unique")
     # Add the model to the database
     db.add(account_model)
 
