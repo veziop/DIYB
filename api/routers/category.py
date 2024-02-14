@@ -56,6 +56,11 @@ def update_category_amount(db: db_dependency, category_id: int, amount: float) -
     """Update the assigned amount of a category entry with the transaction amount."""
     # Fetch the category entry
     category_model = db.query(Category).filter(Category.id == category_id).first()
+    # Abort if the operation results in a negative amount
+    if category_model.assigned_amount + amount < 0:
+        raise HTTPException(
+            status_code=400, detail="Category assigned amount would become negative"
+        )
     # Update the assigned amount
     category_model.assigned_amount += amount
     # Apply the changes to the database
