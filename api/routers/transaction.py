@@ -193,6 +193,8 @@ async def update_transaction(
         entry.
     :param id: (int) ID of the transaction entry.
     """
+    # TODO design a way to undo balance(s) entries if the ACCOUNT id is modified
+    # TODO design a way to undo balance(s) entries if the CATEGORY id is modified
     # Fetch the model
     transaction_model = db.query(Transaction).filter(Transaction.id == id).first()
     # Abort if no transaction is found
@@ -258,6 +260,7 @@ async def partially_update_transaction(
         entry.
     :param id: (int) ID of the transaction entry.
     """
+    # TODO design a way to undo balance(s) entries if the ACCOUNT id is modified
     # Fetch the model
     transaction_model = db.query(Transaction).filter(Transaction.id == id).first()
     # Abort if no transaction is found
@@ -296,7 +299,23 @@ async def partially_update_transaction(
         raise HTTPException(
             status_code=400, detail="Category assigned amount would become negative"
         )
-    # Update the model with the new data
+    # Detect a change in the <category_id>
+    category_changed = (
+        update_data.get("category_id")
+        and update_data["category_id"] != transaction_model.category_id
+    )
+    if category_changed:
+        # If category changed, undo the previous category's amount
+        update_category_amount(
+            db=db, category_id=transaction_model.category_id, amount=-transaction_model.amount
+        )
+        # Update the new category's amount
+        update_category_amount(
+            db=db,
+            category_id=update_data["category_id"],
+            amount=update_data.get("amount", transaction_model.amount),
+        )
+    # Update the existing model with the new data
     transaction_model.last_update_datetime = datetime.now().replace(microsecond=0)
     for attribute, value in update_data.items():
         setattr(transaction_model, attribute, value)
@@ -304,15 +323,17 @@ async def partially_update_transaction(
     db.add(transaction_model)
     # Create new balance entry and update the category
     if amount_changed:
-        update_category_amount(
-            db=db, category_id=transaction_model.category_id, amount=amount_difference
-        )
+        # Avoid re-running the update of category amount if it has already run
+        if not category_changed:
+            update_category_amount(
+                db=db, category_id=transaction_model.category_id, amount=amount_difference
+            )
         create_balance_entry(
             db=db,
             transaction_id=id,
             account_id=transaction_model.account_id,
             amount_difference=amount_difference,
-            transaction_amount=update_data.get("amount"),
+            transaction_amount=update_data["amount"],
         )
 
 
