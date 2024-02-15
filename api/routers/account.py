@@ -211,3 +211,6 @@ async def delete_account(
         )
     # Delete the category
     db.delete(account_model)
+
+
+# TODO endpoint for transferring sum between accounts

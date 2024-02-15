@@ -4,6 +4,7 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definition of the category model.
 """
+
 from decimal import Decimal
 
 from sqlalchemy import Column, Integer, Numeric, String
@@ -31,3 +32,4 @@ class Category(Base):
         default=Decimal(0),
         doc="Remaining amount assigned to this category entry",
     )
+    # TODO create is_stage boolean column
