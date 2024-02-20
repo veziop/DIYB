@@ -194,7 +194,6 @@ async def update_transaction(
     :param id: (int) ID of the transaction entry.
     """
     # TODO design a way to undo balance(s) entries if the ACCOUNT id is modified
-    # TODO design a way to undo balance(s) entries if the CATEGORY id is modified
     # Fetch the model
     transaction_model = db.query(Transaction).filter(Transaction.id == id).first()
     # Abort if no transaction is found
@@ -206,6 +205,7 @@ async def update_transaction(
     )
     if not category_model:
         raise HTTPException(status_code=404, detail="Category not found")
+    # TODO abort if no account is found
     # If money outflow, halt if the category is the 'stage'category
     if transaction_request.amount < 0 and transaction_request.category_id == 1:
         raise HTTPException(
@@ -222,6 +222,19 @@ async def update_transaction(
         raise HTTPException(
             status_code=400, detail="Category assigned amount would become negative"
         )
+    # Detect a change in the <category_id>
+    category_changed = category_model.id != transaction_model.category_id
+    if category_changed:
+        # If category changed, undo the previous category's amount
+        update_category_amount(
+            db=db, category_id=transaction_model.category_id, amount=-transaction_model.amount
+        )
+        # Update the new category's amount
+        update_category_amount(
+            db=db,
+            category_id=category_model.id,
+            amount=transaction_request.amount,
+        )
     # Modify the existing data
     transaction_model.payee = transaction_request.payee
     transaction_model.transaction_date = transaction_request.transaction_date
@@ -234,9 +247,10 @@ async def update_transaction(
     db.add(transaction_model)
     # Create new balance entry and update the category
     if amount_changed:
-        update_category_amount(
-            db=db, category_id=transaction_model.category_id, amount=amount_difference
-        )
+        if not category_changed:
+            update_category_amount(
+                db=db, category_id=transaction_model.category_id, amount=amount_difference
+            )
         create_balance_entry(
             db=db,
             transaction_id=id,
