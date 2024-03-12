@@ -13,6 +13,7 @@ from api.database import db_dependency, sql_session
 from api.models.account import Account
 from api.models.balance import Balance
 from api.models.transaction import Transaction
+from api.utils.tools import validate_entries_in_db
 
 router = APIRouter(prefix="/account", tags=["account"])
 
@@ -115,25 +116,25 @@ async def get_account(db: db_dependency, id: int = Path(gt=0)):
     :param id: (int) ID of the account entry.
     """
     # Get the model from the database
-    account_model = db.query(Account).filter(Account.id == id).first()
-    # Return the model if found
-    if account_model:
-        account = {
-            "id": account_model.id,
-            "name": account_model.name,
-            "description": account_model.description,
-            "iban_tail": account_model.iban_tail,
-            "running_total": getattr(
-                db.query(Balance)
-                .join(Transaction)
-                .filter(Balance.is_current, Transaction.account_id == id)
-                .first(),
-                "running_total",
-                None,
-            ),
-        }
-        return {key: value for key, value in account.items() if value}
-    raise HTTPException(status_code=404, detail="Account not found")
+    account_model = validate_entries_in_db(
+        db=db,
+        entries=[{"model": Account, "id_value": id, "return_model": True}],
+    )["Account"]
+    account = {
+        "id": account_model.id,
+        "name": account_model.name,
+        "description": account_model.description,
+        "iban_tail": account_model.iban_tail,
+        "running_total": getattr(
+            db.query(Balance)
+            .join(Transaction)
+            .filter(Balance.is_current, Transaction.account_id == id)
+            .first(),
+            "running_total",
+            None,
+        ),
+    }
+    return {key: value for key, value in account.items() if value}
 
 
 @router.put("/{id}", status_code=status.HTTP_200_OK)
@@ -150,10 +151,10 @@ async def update_account(
     :param id: (int) ID of the account entry.
     """
     # Fetch the model
-    account_model = db.query(Account).filter(Account.id == id).first()
-    # If not found raise exception
-    if not account_model:
-        raise HTTPException(status_code=404, detail="Account not found")
+    account_model = validate_entries_in_db(
+        db=db,
+        entries=[{"model": Account, "id_value": id, "return_model": True}],
+    )["Account"]
     # Modify the existing data
     account_model.name = account_request.name
     account_model.description = account_request.description
@@ -175,10 +176,10 @@ async def partially_update_account(
     :param id: (int) ID of the category entry.
     """
     # Fetch the model
-    account_model = db.query(Account).filter(Account.id == id).first()
-    # If not found raise exception
-    if not account_model:
-        raise HTTPException(status_code=404, detail="Acount not found")
+    account_model = validate_entries_in_db(
+        db=db,
+        entries=[{"model": Account, "id_value": id, "return_model": True}],
+    )["Account"]
     # Collect attributes to modify
     update_data = new_data.model_dump(exclude_unset=True)
     # Update the model with the new data
@@ -200,10 +201,10 @@ async def delete_account(
     :param id: (int) ID of the account entry.
     """
     # Fetch the model
-    account_model = db.query(Account).filter(Account.id == id).first()
-    # If not found raise exception
-    if not account_model:
-        raise HTTPException(status_code=404, detail="Account not found")
+    account_model = validate_entries_in_db(
+        db=db,
+        entries=[{"model": Account, "id_value": id, "return_model": True}],
+    )["Account"]
     # If last account then abort deletion
     if db.query(Account).count() == 1:
         raise HTTPException(
