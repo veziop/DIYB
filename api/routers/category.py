@@ -9,10 +9,12 @@ from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 from starlette import status
 
 from api.database import db_dependency, sql_session
 from api.models.category import Category
+from api.utils.tools import validate_entries_in_db
 
 router = APIRouter(prefix="/category", tags=["category"])
 
@@ -52,7 +54,7 @@ def create_staging_category() -> None:
         db.add(stage_model)
 
 
-def update_category_amount(db: db_dependency, category_id: int, amount: float) -> None:
+def update_category_amount(db: Session, category_id: int, amount: float) -> None:
     """Update the assigned amount of a category entry with the transaction amount."""
     # Fetch the category entry
     category_model = db.query(Category).filter(Category.id == category_id).first()
@@ -100,13 +102,10 @@ async def get_category(db: db_dependency, id: int = Path(gt=0)):
     :param db: (db_dependency) SQLAlchemy ORM session.
     :param id: (int) ID of the category entry.
     """
-    # Fetch the entry from the db
-    category_model = db.query(Category).filter(Category.id == id).first()
-    # If found return the model
-    if category_model:
-        return category_model
-    # If not found raise exception
-    raise HTTPException(status_code=404, detail="Category entry not found")
+    # Validate the ID and return the model
+    return validate_entries_in_db(
+        db=db, entries=[{"model": Category, "id_value": id, "return_model": True}]
+    )["Category"]
 
 
 @router.put("/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -124,10 +123,10 @@ async def update_category(
     :param id: (int) ID of the category entry.
     """
     # Fetch the model
-    category_model = db.query(Category).filter(Category.id == id).first()
-    # If not found raise exception
-    if not category_model:
-        raise HTTPException(status_code=404, detail="Category not found")
+    category_model = validate_entries_in_db(
+        db=db,
+        entries=[{"model": Category, "id_value": id, "return_model": True}],
+    )["Category"]
     # Modify the existing data
     category_model.title = category_request.title
     category_model.description = category_request.description
@@ -150,10 +149,10 @@ async def partially_update_category(
     :param id: (int) ID of the category entry.
     """
     # Fetch the model
-    category_model = db.query(Category).filter(Category.id == id).first()
-    # If not found raise exception
-    if not category_model:
-        raise HTTPException(status_code=404, detail="Category not found")
+    category_model = validate_entries_in_db(
+        db=db,
+        entries=[{"model": Category, "id_value": id, "return_model": True}],
+    )["Category"]
     # Collect attributes to modify
     update_data = new_data.model_dump(exclude_unset=True)
     # Update the model with the new data
@@ -175,10 +174,10 @@ async def delete_category(
     :param id: (int) ID of the category entry.
     """
     # Fetch the model
-    category_model = db.query(Category).filter(Category.id == id).first()
-    # If not found raise exception
-    if not category_model:
-        raise HTTPException(status_code=404, detail="Category not found")
+    category_model = validate_entries_in_db(
+        db=db,
+        entries=[{"model": Category, "id_value": id, "return_model": True}],
+    )["Category"]
     # Protect the stage category from deletion
     if category_model.id == 1:
         raise HTTPException(status_code=405, detail="Cannot delete the stage category")
@@ -203,12 +202,14 @@ async def move_amount(db: db_dependency, move_request: MoveRequest, id: int = Pa
      move.
     """
     # Fetch the models
-    from_category_model = db.query(Category).filter(Category.id == id).first()
-    to_category_model = db.query(Category).filter(Category.id == move_request.id_to).first()
-    if not from_category_model:
-        raise HTTPException(status_code=404, detail="<from> category not found")
-    if not to_category_model:
-        raise HTTPException(status_code=404, detail="<to> category not found")
+    from_category_model = validate_entries_in_db(
+        db=db,
+        entries=[{"model": Category, "id_value": id, "return_model": True}],
+    )["Category"]
+    to_category_model = validate_entries_in_db(
+        db=db,
+        entries=[{"model": Category, "id_value": move_request.id_to, "return_model": True}],
+    )["Category"]
     # Halt if remaining is negative
     if from_category_model.assigned_amount - move_request.amount < 0:
         raise HTTPException(
