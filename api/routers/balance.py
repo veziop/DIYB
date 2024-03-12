@@ -41,8 +41,14 @@ def create_balance_entry(
     deliberately not an endpoint as creating a balance entry directly is not allowed. It must
     derive from creating, updating or deleting a transaction entry.
 
+    Also used to create new balance entries that cancel a previous' amount. This technique is
+    prefered for the sake of keeping the order and work in a non-destructive manner. Instead of
+    modifying existing rows (chances are they are not flagged as <is_current> anymore) from
+    the entries history and losing the running total.
+
     :param db: (Session) SQLAlchemy ORM session.
     :param transaction_id: (int) ID of the transaction entry.
+    :param account_id: (int) ID of the account entry.
     :param amount_difference: (Decimal) amount to adjust the current balance with.
     :param transaction_amount: (float) optional, new transaction amount for updating existing
      transactions.
