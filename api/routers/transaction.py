@@ -20,6 +20,7 @@ from api.models.category import Category
 from api.models.transaction import Transaction
 from api.routers.balance import create_balance_entry
 from api.routers.category import update_category_amount
+from api.utils.tools import validate_entries_in_db
 
 router = APIRouter(prefix="/transaction", tags=["transaction"])
 
@@ -116,20 +117,24 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
     transaction_request_data = transaction_request.model_dump()
     transaction_request_data["creation_datetime"] = datetime.now().replace(microsecond=0)
     transaction_request_data["last_update_datetime"] = datetime.now().replace(microsecond=0)
-    # Abort if no account is found
-    account = (
-        db.query(Account).filter(Account.id == transaction_request_data["account_id"]).first()
+    # Abort if no account or category are found
+    validation = validate_entries_in_db(
+        db=db,
+        entries=[
+            {
+                "model": Account,
+                "id_value": transaction_request_data["account_id"],
+                "return_model": False,
+            },
+            {
+                "model": Category,
+                "id_value": transaction_request_data["category_id"],
+                "return_model": True,
+            },
+        ],
     )
-    if not account:
-        raise HTTPException(status_code=404, detail="Account not found")
-    # Abort if no category is found
-    category_model = (
-        db.query(Category)
-        .filter(Category.id == transaction_request_data["category_id"])
-        .first()
-    )
-    if not category_model:
-        raise HTTPException(status_code=404, detail="Category not found")
+    # Collect the category model from the validation
+    category_model = validation["Category"]
     # Abort if the operation results in a negative category amount
     if transaction_request_data["amount"] + category_model.assigned_amount < 0:
         raise HTTPException(
@@ -170,13 +175,10 @@ async def get_transaction(db: db_dependency, id: int = Path(gt=0)):
     :param db: (db_dependency) SQLAlchemy ORM session.
     :param id: (int) ID of the transaction entry.
     """
-    # Fetch the model
-    transaction_model = db.query(Transaction).filter(Transaction.id == id).first()
-    # If found return the model
-    if transaction_model:
-        return transaction_model
-    # If not found raise exception
-    raise HTTPException(status_code=404, detail="Transaction not found")
+    # Validate the ID and return the model
+    return validate_entries_in_db(
+        db=db, entries=[{"model": Transaction, "id_value": id, "return_model": True}]
+    )["Transaction"]
 
 
 @router.put("/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -194,26 +196,30 @@ async def update_transaction(
     :param id: (int) ID of the transaction entry.
     """
     # TODO design a way to undo balance(s) entries if the ACCOUNT id is modified
-    # Fetch the model
-    transaction_model = db.query(Transaction).filter(Transaction.id == id).first()
-    # Abort if no transaction is found
-    if not transaction_model:
-        raise HTTPException(status_code=404, detail="Transaction not found")
-    # Abort if no category is found
-    category_model = (
-        db.query(Category).filter(Category.id == transaction_request.category_id).first()
+    # Validate the requested IDs
+    validation = validate_entries_in_db(
+        db=db,
+        entries=[
+            {"model": Transaction, "id_value": id, "return_model": True},
+            {
+                "model": Category,
+                "id_value": transaction_request.category_id,
+                "return_model": True,
+            },
+            {
+                "model": Account,
+                "id_value": transaction_request.account_id,
+                "return_model": False,
+            },
+        ],
     )
-    if not category_model:
-        raise HTTPException(status_code=404, detail="Category not found")
-    # TODO abort if no account is found
-    # If money outflow, halt if the category is the 'stage'category
+    # Collect the transaction and category models from the validation
+    transaction_model, category_model = validation["Transaction"], validation["Category"]
+    # If money outflow, halt if the category is the 'stage' category
     if transaction_request.amount < 0 and transaction_request.category_id == 1:
         raise HTTPException(
             status_code=403, detail="Cannot have money outflow from 'stage' category"
         )
-    # Abort if no account is found
-    if not db.query(Account).filter(Account.id == transaction_request.account_id).count():
-        raise HTTPException(status_code=404, detail="Account not found")
     # Detect changes to the amount
     amount_changed = transaction_model.amount != transaction_request.amount
     amount_difference = transaction_request.amount - transaction_model.amount
@@ -275,30 +281,41 @@ async def partially_update_transaction(
     :param id: (int) ID of the transaction entry.
     """
     # TODO design a way to undo balance(s) entries if the ACCOUNT id is modified
-    # Fetch the model
-    transaction_model = db.query(Transaction).filter(Transaction.id == id).first()
-    # Abort if no transaction is found
-    if not transaction_model:
-        raise HTTPException(status_code=404, detail="Transaction not found")
     # Collect attributes to modify
     update_data = transaction_partial_request.model_dump(exclude_unset=True)
-    # Abort if no account is found
-    if (
-        update_data.get("account_id")
-        and not db.query(Account).filter(Account.id == update_data["account_id"]).count()
-    ):
-        raise HTTPException(status_code=404, detail="Account not found")
-    # Abort if no category is found
-    category_model = (
-        db.query(Category)
-        .filter(Category.id == transaction_partial_request.category_id)
-        .first()
-        if update_data.get("category_id")
-        else db.query(Category).filter(Category.id == transaction_model.category_id).first()
+    # Validate the requested IDs
+    validations = validate_entries_in_db(
+        db=db,
+        entries=[
+            {"model": Transaction, "id_value": id, "return_model": True},
+            (
+                {
+                    "model": Account,
+                    "id_value": update_data["account_id"],
+                    "return_model": False,
+                }
+                if update_data.get("account_id")
+                else None
+            ),
+            (
+                {
+                    "model": Category,
+                    "id_value": update_data["category_id"],
+                    "return_model": True,
+                }
+                if update_data.get("category_id")
+                else None
+            ),
+        ],
     )
-    if update_data.get("category_id") and not category_model:
-        raise HTTPException(status_code=404, detail="Category not found")
-    # If money outflow, halt if the category is the 'stage'category
+    # Collect the transaction model from the validation
+    transaction_model = validations["Transaction"]
+    # If no new category was requested, fetch the transaction's category
+    category_model = validations.get(
+        "Category",
+        db.query(Category).filter(Category.id == transaction_model.category_id).first(),
+    )
+    # If money outflow, halt if the category is the 'stage' category
     if (update_data.get("amount", 0) < 0 or transaction_model.amount < 0) and (
         update_data.get("category_id", 0) == 1 or transaction_model.category_id == 1
     ):
@@ -362,11 +379,10 @@ async def delete_transaction(
     :param db: (db_dependency) SQLAlchemy ORM session.
     :param id: (int) ID of the transaction entry.
     """
-    # Fetch the model
-    transaction_model = db.query(Transaction).filter(Transaction.id == id).first()
-    # If not found raise exception
-    if not transaction_model:
-        raise HTTPException(status_code=404, detail="Transaction not found")
+    # Validate the requested ID and collect the model
+    transaction_model = validate_entries_in_db(
+        db=db, entries=[{"model": Transaction, "id_value": id, "return_model": True}]
+    )["Transaction"]
     # Undo this transaction's balance influence
     create_balance_entry(
         db=db,
