@@ -158,6 +158,8 @@ async def update_account(
     # Modify the existing data
     account_model.name = account_request.name
     account_model.description = account_request.description
+    if account_request.iban_tail:
+        account_model.iban_tail = account_request.iban_tail
     # Confirm the changes
     db.add(account_model)
 
