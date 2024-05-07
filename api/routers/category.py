@@ -194,7 +194,7 @@ async def delete_category(
 async def move_amount(db: db_dependency, move_request: MoveRequest, id: int = Path(gt=0)):
     """
     Assign or move amounts from one category to another. The passed amount will be deducted
-    from the "id_from" category to the "id_to" category.
+    from the "id" category to the "id_to" category.
 
     :param db: (db_dependency) SQLAlchemy ORM session.
     :param id: (int) ID of the category to move from.
