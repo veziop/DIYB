@@ -21,14 +21,15 @@ router = APIRouter(prefix="/account", tags=["account"])
 class AccountRequest(BaseModel):
     name: str = Field(min_length=2, max_length=30)
     description: str = Field(default="", max_length=100)
-    iban_tail: str | None = Field(default=None, pattern="^[0-9]{4}$")
+    iban_tail: str | None = Field(default=None, max_length=4, pattern="^[0-9]{4}$")
 
 
 class AccountResponse(BaseModel):
     id: int
     name: str
-    description: str | None = None
-    iban_tail: str | None = None
+    description: str
+    is_current: bool
+    iban_tail: str | None
     running_total: float | None = None
 
 
@@ -44,7 +45,9 @@ def create_current_account():
         accounts = db.query(Account).count()
         if accounts:
             return
-        current = Account(name="current", description="default account", iban_tail=None)
+        current = Account(
+            name="current", description="default account", is_current=True, iban_tail=None
+        )
         db.add(current)
 
 
@@ -60,11 +63,12 @@ async def read_all_accounts(db: db_dependency):
 
     :param db: (db_dependency) SQLAlchemy ORM session.
     """
-    accounts = [
+    return [
         {
             "id": account.id,
             "name": account.name,
             "description": account.description,
+            "is_current": account.is_current,
             "iban_tail": account.iban_tail if account.iban_tail else None,
             "running_total": getattr(
                 db.query(Balance)
@@ -77,7 +81,6 @@ async def read_all_accounts(db: db_dependency):
         }
         for account in db.query(Account).all()
     ]
-    return [{key: value for key, value in account.items() if value} for account in accounts]
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
@@ -120,10 +123,11 @@ async def get_account(db: db_dependency, id: int = Path(gt=0)):
         db=db,
         entries=[{"model": Account, "id_value": id, "return_model": True}],
     )["Account"]
-    account = {
+    return {
         "id": account_model.id,
         "name": account_model.name,
         "description": account_model.description,
+        "is_current": account_model.is_current,
         "iban_tail": account_model.iban_tail,
         "running_total": getattr(
             db.query(Balance)
@@ -134,7 +138,6 @@ async def get_account(db: db_dependency, id: int = Path(gt=0)):
             None,
         ),
     }
-    return {key: value for key, value in account.items() if value}
 
 
 @router.put("/{id}", status_code=status.HTTP_200_OK)
