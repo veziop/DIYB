@@ -4,7 +4,8 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definition of the account model.
 """
-from sqlalchemy import Column, Integer, String
+
+from sqlalchemy import Boolean, Column, Integer, String
 
 from api.database import Base
 
@@ -23,6 +24,11 @@ class Account(Base):
         String(100),
         default="no description",
         doc="User defined description of the account entry",
+    )
+    is_current = Column(
+        Boolean,
+        default=False,
+        doc="Default current account for each user (aka checkings account)",
     )
     iban_tail = Column(
         String(4),
