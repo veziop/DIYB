@@ -33,7 +33,7 @@ class AccountResponse(BaseModel):
     description: str
     is_current: bool
     iban_tail: str | None
-    running_total: float | None = None
+    running_total: float | None
 
 
 class AccountPartialRequest(BaseModel):
