@@ -233,7 +233,10 @@ async def delete_account(db: db_dependency, id: int = Path(gt=0)):
 
 @router.post("/{id_from}/transfer/{id_to}", status_code=status.HTTP_204_NO_CONTENT)
 async def transfer_between_accounts(
-    db: db_dependency, id_from: int, id_to: int, transfer_request: AccountTransferRequest
+    db: db_dependency,
+    transfer_request: AccountTransferRequest,
+    id_from: int = Path(gt=0),
+    id_to: int = Path(gt=0),
 ):
     """
     Transfer amounts from one account to another. The passed amount will be deducted
