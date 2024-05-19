@@ -5,6 +5,8 @@ email: valenp97@gmail.com
 description: Module for the definitions of routes related to the Account model.
 """
 
+from decimal import Decimal
+
 from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field
 from starlette import status
@@ -13,6 +15,7 @@ from api.database import db_dependency, sql_session
 from api.models.account import Account
 from api.models.balance import Balance
 from api.models.transaction import Transaction
+from api.routers.transaction import create_transfer_transactions
 from api.utils.tools import validate_entries_in_db
 
 router = APIRouter(prefix="/account", tags=["account"])
@@ -37,6 +40,10 @@ class AccountPartialRequest(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=30)
     description: str | None = Field(default=None, max_length=100)
     iban_tail: str | None = Field(default=None, max_length=4, pattern="^[0-9]{4}$")
+
+
+class AccountTransferRequest(BaseModel):
+    amount: Decimal = Field(decimal_places=2, gt=0)
 
 
 def create_current_account():
@@ -142,9 +149,7 @@ async def get_account(db: db_dependency, id: int = Path(gt=0)):
 
 @router.put("/{id}", status_code=status.HTTP_200_OK)
 async def update_account(
-    db: db_dependency,
-    account_request: AccountRequest,
-    id: int = Path(gt=0),
+    db: db_dependency, account_request: AccountRequest, id: int = Path(gt=0)
 ):
     """
     Endpoint to modify an existing account entry from the database.
@@ -169,9 +174,7 @@ async def update_account(
 
 @router.patch("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def partially_update_account(
-    db: db_dependency,
-    new_data: AccountPartialRequest,
-    id: int = Path(gt=0),
+    db: db_dependency, new_data: AccountPartialRequest, id: int = Path(gt=0)
 ):
     """
     Endpoint to partially modify an existing account entry from the database.
@@ -195,10 +198,7 @@ async def partially_update_account(
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_account(
-    db: db_dependency,
-    id: int = Path(gt=0),
-):
+async def delete_account(db: db_dependency, id: int = Path(gt=0)):
     """
     Endpoint to delete an existing account entry from the database.
 
@@ -219,4 +219,51 @@ async def delete_account(
     db.delete(account_model)
 
 
-# TODO endpoint for transferring sum between accounts
+@router.post("/{id_from}/transfer/{id_to}", status_code=status.HTTP_204_NO_CONTENT)
+async def transfer_between_accounts(
+    db: db_dependency, id_from: int, id_to: int, transfer_request: AccountTransferRequest
+):
+    """
+    Transfer amounts from one account to another. The passed amount will be deducted
+    from the "id_from" account to the "id_to" account. This process is done by creating new
+    Transaction entries, one for each account. These entries will not have any category
+    assigned to them.
+
+    :param db: (db_dependency) SQLAlchemy ORM session.
+    :param id_from: (int) ID of the account to transfer from.
+    :param id_to: (int) ID of the account to transfer to.
+    :param transfer_request: (AccountTransferRequest) body of request containing the amount to
+        transfer between accounts.
+    """
+    # Validate the IDs
+    from_account_model = validate_entries_in_db(
+        db=db,
+        entries=[{"model": Account, "id_value": id_from, "return_model": True}],
+    )["Account"]
+    to_account_model = validate_entries_in_db(
+        db=db,
+        entries=[{"model": Account, "id_value": id_to, "return_model": True}],
+    )["Account"]
+    # Halt if remaining is negative
+    current_running_total = getattr(
+        db.query(Balance)
+        .join(Transaction)
+        .filter(Balance.is_current, Transaction.account_id == id_from)
+        .first(),
+        "running_total",
+        None,
+    )
+    if (
+        current_running_total is not None
+        and current_running_total - transfer_request.amount < 0
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Transfer request would result in negative 'from account' amount",
+        )
+    create_transfer_transactions(
+        db=db,
+        from_account_model=from_account_model,
+        to_account_model=to_account_model,
+        amount=transfer_request.amount,
+    )

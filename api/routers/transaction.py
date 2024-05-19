@@ -34,7 +34,7 @@ class TransactionRequest(BaseModel):
     transaction_date: date = Field(default=date.today())
     description: str = Field(max_length=100)
     amount: Decimal = Field(decimal_places=2)
-    category_id: int = Field(default=1, gt=0)
+    category_id: int | None = Field(default=1, gt=0)
     account_id: int = Field(default=1, gt=0)
 
     @validator("transaction_date")
@@ -79,8 +79,64 @@ class TransactionResponse(BaseModel):
     last_update_datetime: datetime
     description: str
     amount: float
+    is_transfer: bool
     category_id: int
     account_id: int
+
+
+def create_transfer_transactions(
+    db: db_dependency, from_account_model: Account, to_account_model: Account, amount: Decimal
+):
+    """
+    Function to create Transaction and Balance entries for transfers between Accounts.
+
+    :param db: (db_dependency) SQLAlchemy ORM session.
+    :param TODO
+    """
+    datetime_now = datetime.now().replace(microsecond=0)
+    today = date.today()
+    # Label the payee as the other account's name to help the user with identifying
+    transaction_from_model = Transaction(
+        payee=f"Transfer: {to_account_model.name}",
+        creation_datetime=datetime_now,
+        last_update_datetime=datetime_now,
+        transaction_date=today,
+        description="",
+        amount=-abs(amount),
+        is_transfer=True,
+        category_id=None,
+        account_id=from_account_model.id,
+    )
+    transaction_to_model = Transaction(
+        payee=f"Transfer: {from_account_model.name}",
+        creation_datetime=datetime_now,
+        last_update_datetime=datetime_now,
+        transaction_date=today,
+        description="",
+        amount=abs(amount),
+        is_transfer=True,
+        category_id=None,
+        account_id=to_account_model.id,
+    )
+    # Insert the new transaction entries
+    db.add(transaction_from_model)
+    db.add(transaction_to_model)
+    # Flush the session so to get access to the id before the entry is commited
+    db.flush()
+    # Create balance entry for the "from" transaction
+    create_balance_entry(
+        db=db,
+        transaction_id=transaction_from_model.id,
+        account_id=transaction_from_model.account_id,
+        amount_difference=transaction_from_model.amount,
+    )
+    # Create balance entry for the "to" transaction
+    create_balance_entry(
+        db=db,
+        transaction_id=transaction_to_model.id,
+        account_id=transaction_to_model.account_id,
+        amount_difference=transaction_to_model.amount,
+    )
 
 
 @router.get("/all", status_code=status.HTTP_200_OK, response_model=list[TransactionResponse])
