@@ -25,12 +25,12 @@ class Transaction(Base):
     payee = Column(String(100), doc="Name/title of the payee")
     creation_datetime = Column(
         DateTime,
-        default=datetime.now,
+        default=lambda _: datetime.now().replace(microsecond=0),
         doc="Date/time of creation of the transaction entry in the database",
     )
     last_update_datetime = Column(
         DateTime,
-        default=datetime.now,
+        default=lambda _: datetime.now().replace(microsecond=0),
         doc="Date/time of the last update operation of the transaction entry",
     )
     transaction_date = Column(

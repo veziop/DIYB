@@ -35,7 +35,7 @@ class TransactionRequest(BaseModel):
     transaction_date: date = Field(default=date.today())
     description: str = Field(max_length=100)
     amount: Decimal = Field(decimal_places=2)
-    category_id: int | None = Field(default=1, gt=0)
+    category_id: int | None = Field(default=None, gt=0)
     account_id: int = Field(default=1, gt=0)
 
     @validator("transaction_date")
@@ -81,65 +81,134 @@ class TransactionResponse(BaseModel):
     description: str
     amount: float
     is_transfer: bool
-    category_id: int
+    category_id: int | None
     account_id: int
 
 
-def create_transfer_transactions(
-    db: Session, from_account_model: Account, to_account_model: Account, amount: Decimal
+def create_new_transaction_entry(
+    db: Session, transaction_data: dict, datetime_now: datetime = None
 ):
     """
-    Function to create Transaction and Balance entries for transfers between Accounts.
+    Function for creating new Transaction entries. Useful for reusing in:
+        1. endpoint for creating new Transactions.
+        2. endpoint for creating two "transfer" Transactions between two Accounts.
+
+    :param db: (db_dependency) SQLAlchemy ORM session.
+    :param transaction_data: (dict) data for the new entry.
+    :param datetime_now: (datetime) optional; current date-time.
+    """
+    # Determine when is now
+    if datetime_now is None:
+        datetime_now = datetime.now().replace(microsecond=0)
+        # Discard microseconds from the time data
+        transaction_data["creation_datetime"] = datetime_now
+        transaction_data["last_update_datetime"] = datetime_now
+    # Abort if no account is found
+    validate_entries_in_db(
+        db=db,
+        entries=[
+            {
+                "model": Account,
+                "id_value": transaction_data["account_id"],
+                "return_model": False,
+            },
+        ],
+    )
+    # Validate category (if new transaction is not a transfer between accounts)
+    if transaction_data.get("category_id") and not transaction_data.get("is_transfer"):
+        category_model = validate_entries_in_db(
+            db=db,
+            entries=[
+                {
+                    "model": Category,
+                    "id_value": transaction_data["category_id"],
+                    "return_model": True,
+                },
+            ],
+        )["Category"]
+        # Abort if the operation results in a negative category amount
+        if transaction_data["amount"] + category_model.assigned_amount < 0:
+            raise HTTPException(
+                status_code=400, detail="Category assigned amount would become negative"
+            )
+    # Create the transaction model
+    transaction_model = Transaction(**transaction_data)
+    # If money inflow, overwrite the default 'stage' category
+    if transaction_model.amount > 0 and not transaction_model.is_transfer:
+        transaction_model.category_id = 1
+    # If money outflow, halt if the category is the 'stage' category
+    if transaction_model.amount < 0 and transaction_model.category_id == 1:
+        raise HTTPException(
+            status_code=403, detail="Cannot have money outflow from 'stage' category"
+        )
+    # Add the model to the database
+    db.add(transaction_model)
+    # Flush the session so to get access to the id before the entry is commited
+    db.flush()
+    # Update the category entry's amount (if not a transfer between accounts)
+    if transaction_model.category_id is not None and not transaction_model.is_transfer:
+        update_category_amount(
+            db=db, category_id=transaction_model.category_id, amount=transaction_model.amount
+        )
+    # Create the balance model
+    create_balance_entry(
+        db=db,
+        transaction_id=transaction_model.id,
+        account_id=transaction_model.account_id,
+        amount_difference=transaction_model.amount,
+    )
+
+
+def create_transfer_transactions(
+    db: Session,
+    from_account_model: Account,
+    to_account_model: Account,
+    transfer_date: date,
+    amount: Decimal,
+    description: str,
+):
+    """
+    Function to create Transaction and Balance entries for transfers between Accounts. A common
+    datetime object is computed for current datetime at runtime and shared between both
+    Transactions so to guarantee the same time of day. Same idea with the <transfer_date>
+    parameter, but this one is not computed but rather input by the user.
 
     :param db: (db_dependency) SQLAlchemy ORM session.
     :param from_account_model: (Account) Account model to transfer from (origin).
     :param to_account_model: (Account) Account model to transfer to (destination).
+    :param transfer_date: (date) date of the transfer between the accounts.
     :param amount: (Decimal) amount to transfer between the accounts.
+    :param description: (str) description of the transfer, duplicated in both Transactions.
     """
     datetime_now = datetime.now().replace(microsecond=0)
-    today = date.today()
-    # Label the payee as the other account's name to help the user with identifying
-    transaction_from_model = Transaction(
-        payee=f"Transfer: {to_account_model.name}",
-        creation_datetime=datetime_now,
-        last_update_datetime=datetime_now,
-        transaction_date=today,
-        description="",
-        amount=-abs(amount),
-        is_transfer=True,
-        category_id=None,
-        account_id=from_account_model.id,
-    )
-    transaction_to_model = Transaction(
-        payee=f"Transfer: {from_account_model.name}",
-        creation_datetime=datetime_now,
-        last_update_datetime=datetime_now,
-        transaction_date=today,
-        description="",
-        amount=abs(amount),
-        is_transfer=True,
-        category_id=None,
-        account_id=to_account_model.id,
-    )
-    # Insert the new transaction entries
-    db.add(transaction_from_model)
-    db.add(transaction_to_model)
-    # Flush the session so to get access to the id before the entry is commited
-    db.flush()
-    # Create balance entry for the "from" transaction
-    create_balance_entry(
-        db=db,
-        transaction_id=transaction_from_model.id,
-        account_id=transaction_from_model.account_id,
-        amount_difference=transaction_from_model.amount,
-    )
-    # Create balance entry for the "to" transaction
-    create_balance_entry(
-        db=db,
-        transaction_id=transaction_to_model.id,
-        account_id=transaction_to_model.account_id,
-        amount_difference=transaction_to_model.amount,
-    )
+    # Origin account's transaction
+    transaction_from_data = {
+        # Label the payee as the other account's name to help the user with identifying
+        "payee": f"Transfer: {to_account_model.name}",
+        "transaction_date": transfer_date,
+        "description": description,
+        "creation_datetime": datetime_now,
+        "last_update_datetime": datetime_now,
+        "amount": -abs(amount),
+        "is_transfer": True,
+        "category_id": None,
+        "account_id": from_account_model.id,
+    }
+    create_new_transaction_entry(db, transaction_from_data)
+    # Destination account's transaction
+    transaction_to_data = {
+        # Label the payee as the other account's name to help the user with identifying
+        "payee": f"Transfer: {from_account_model.name}",
+        "transaction_date": transfer_date,
+        "description": description,
+        "creation_datetime": datetime_now,
+        "last_update_datetime": datetime_now,
+        "amount": abs(amount),
+        "is_transfer": True,
+        "category_id": None,
+        "account_id": to_account_model.id,
+    }
+    create_new_transaction_entry(db, transaction_to_data)
 
 
 @router.get("/all", status_code=status.HTTP_200_OK, response_model=list[TransactionResponse])
@@ -172,58 +241,7 @@ async def create_new_transaction(db: db_dependency, transaction_request: Transac
     :param transaction_request: (TransactionRequest) data to be used to build a new
         transaction entry.
     """
-    # Discard microseconds from the time data
-    transaction_request_data = transaction_request.model_dump()
-    transaction_request_data["creation_datetime"] = datetime.now().replace(microsecond=0)
-    transaction_request_data["last_update_datetime"] = datetime.now().replace(microsecond=0)
-    # Abort if no account or category are found
-    validation = validate_entries_in_db(
-        db=db,
-        entries=[
-            {
-                "model": Account,
-                "id_value": transaction_request_data["account_id"],
-                "return_model": False,
-            },
-            {
-                "model": Category,
-                "id_value": transaction_request_data["category_id"],
-                "return_model": True,
-            },
-        ],
-    )
-    # Collect the category model from the validation
-    category_model = validation["Category"]
-    # Abort if the operation results in a negative category amount
-    if transaction_request_data["amount"] + category_model.assigned_amount < 0:
-        raise HTTPException(
-            status_code=400, detail="Category assigned amount would become negative"
-        )
-    # Create the transaction model
-    transaction_model = Transaction(**transaction_request_data)
-    # If money inflow, overwrite the default 'stage' category
-    if transaction_model.amount > 0:
-        transaction_model.category_id = 1
-    # If money outflow, halt if the category is the 'stage'category
-    if transaction_model.amount < 0 and transaction_model.category_id == 1:
-        raise HTTPException(
-            status_code=403, detail="Cannot have money outflow from 'stage' category"
-        )
-    # Add the model to the database
-    db.add(transaction_model)
-    # Flush the session so to get access to the id before the entry is commited
-    db.flush()
-    # Update the category entry's amount
-    update_category_amount(
-        db=db, category_id=transaction_model.category_id, amount=transaction_model.amount
-    )
-    # Create the balance model
-    create_balance_entry(
-        db=db,
-        transaction_id=transaction_model.id,
-        account_id=transaction_model.account_id,
-        amount_difference=transaction_model.amount,
-    )
+    create_new_transaction_entry(db, transaction_request.model_dump())
 
 
 @router.get("/{id}", status_code=status.HTTP_200_OK, response_model=TransactionResponse)
