@@ -5,10 +5,11 @@ email: valenp97@gmail.com
 description: Module for the definitions of routes related to the Account model.
 """
 
+from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from starlette import status
 
 from api.database import db_dependency, sql_session
@@ -43,7 +44,16 @@ class AccountPartialRequest(BaseModel):
 
 
 class AccountTransferRequest(BaseModel):
+    transfer_date: date
     amount: Decimal = Field(decimal_places=2, gt=0)
+    description: str = Field(max_length=100)
+
+    @validator("transfer_date")
+    def validate_not_future_date(cls, value: date):
+        """Validate that the date set as the transfer date is not set in the future"""
+        if value > date.today():
+            raise ValueError("Date cannot be in the future")
+        return value
 
 
 def create_current_account():
@@ -265,5 +275,7 @@ async def transfer_between_accounts(
         db=db,
         from_account_model=from_account_model,
         to_account_model=to_account_model,
+        transfer_date=transfer_request.transfer_date,
         amount=transfer_request.amount,
+        description=transfer_request.description,
     )
