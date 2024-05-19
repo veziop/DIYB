@@ -217,14 +217,16 @@ async def delete_account(db: db_dependency, id: int = Path(gt=0)):
     """
     # Fetch the model
     account_model = validate_entries_in_db(
-        db=db,
-        entries=[{"model": Account, "id_value": id, "return_model": True}],
+        db=db, entries=[{"model": Account, "id_value": id, "return_model": True}]
     )["Account"]
     # If last account then abort deletion
     if db.query(Account).count() == 1:
         raise HTTPException(
             status_code=403, detail="Cannot delete last account entry in the database"
         )
+    # Protect the "current" account from deletion
+    if db.query(Account).filter(Account.id == id).first().is_current:
+        raise HTTPException(status_code=403, detail="Cannot delete the 'current' account")
     # Delete the category
     db.delete(account_model)
 
