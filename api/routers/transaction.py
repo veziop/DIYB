@@ -12,6 +12,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field, condecimal, validator
 from sqlalchemy import func
+from sqlalchemy.orm import Session
 from starlette import status
 
 from api.database import db_dependency
@@ -85,13 +86,15 @@ class TransactionResponse(BaseModel):
 
 
 def create_transfer_transactions(
-    db: db_dependency, from_account_model: Account, to_account_model: Account, amount: Decimal
+    db: Session, from_account_model: Account, to_account_model: Account, amount: Decimal
 ):
     """
     Function to create Transaction and Balance entries for transfers between Accounts.
 
     :param db: (db_dependency) SQLAlchemy ORM session.
-    :param TODO
+    :param from_account_model: (Account) Account model to transfer from (origin).
+    :param to_account_model: (Account) Account model to transfer to (destination).
+    :param amount: (Decimal) amount to transfer between the accounts.
     """
     datetime_now = datetime.now().replace(microsecond=0)
     today = date.today()
