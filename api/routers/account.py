@@ -225,9 +225,22 @@ async def delete_account(db: db_dependency, id: int = Path(gt=0)):
             status_code=403, detail="Cannot delete last account entry in the database"
         )
     # Protect the "current" account from deletion
-    if db.query(Account).filter(Account.id == id).first().is_current:
+    if account_model.is_current:
         raise HTTPException(status_code=403, detail="Cannot delete the 'current' account")
-    # Delete the category
+    # Protect accounts with funds (possitive running totals)
+    if getattr(
+        db.query(Balance)
+        .join(Transaction)
+        .filter(Balance.is_current, Transaction.account_id == id)
+        .first(),
+        "running_total",
+        None,
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot delete an account with funds. Please transfer funds and try again",
+        )
+    # Delete the account
     db.delete(account_model)
 
 
