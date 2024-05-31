@@ -9,11 +9,14 @@ from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette import status
 
 from api.database import db_dependency, sql_session
+from api.models.balance import Balance
 from api.models.category import Category
+from api.models.transaction import Transaction
 from api.utils.tools import validate_entries_in_db
 
 router = APIRouter(prefix="/category", tags=["category"])
@@ -181,11 +184,25 @@ async def delete_category(
     # Protect the stage category from deletion
     if category_model.id == 1:
         raise HTTPException(status_code=405, detail="Cannot delete the stage category")
-    # Transfer the remaining amount to the default stage category
+    # Halt if the category has an assigned amount
     if category_model.assigned_amount:
-        stage_model = db.query(Category).filter(Category.id == 1).first()
-        stage_model.assigned_amount += category_model.assigned_amount
-        db.add(stage_model)
+        raise HTTPException(
+            status_code=400,
+            detail="Category still contains funds in <assigned_amount>, "
+            "please move funds and try again",
+        )
+    # Manually delete all transactions except Transaction that is marked
+    # with "is_current" (under Balance)
+    subquery = (
+        select(Transaction.id)
+        .join(Balance)
+        .filter(Transaction.category_id == id, Balance.is_current.is_not(True))
+    )
+    (
+        db.query(Transaction)
+        .filter(Transaction.id.in_(subquery))
+        .delete(synchronize_session=False)
+    )
     # Delete the category
     db.delete(category_model)
 
