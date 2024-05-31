@@ -8,6 +8,7 @@ description: Module for the definition of the transaction model.
 from datetime import datetime
 
 from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy.orm import relationship
 
 from api.database import Base
 from api.models.category import Category
@@ -64,3 +65,5 @@ class Transaction(Base):
         ForeignKey("account.id"),
         doc="Foreign key link to the bank account associated to this transaction entry",
     )
+    balances = relationship("Balance", cascade="delete")
+    # TODO add column "is_orphaned" to mark transactions that have been left behind (category or account deleted)

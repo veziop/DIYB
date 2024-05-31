@@ -8,6 +8,7 @@ description: Module for the definition of the category model.
 from decimal import Decimal
 
 from sqlalchemy import Column, Integer, Numeric, String
+from sqlalchemy.orm import relationship
 
 from api.database import Base
 
@@ -33,3 +34,4 @@ class Category(Base):
         doc="Remaining amount assigned to this category entry",
     )
     # TODO create is_stage boolean column
+    transactions = relationship("Transaction")

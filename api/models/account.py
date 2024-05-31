@@ -6,6 +6,7 @@ description: Module for the definition of the account model.
 """
 
 from sqlalchemy import Boolean, Column, Integer, String
+from sqlalchemy.orm import relationship
 
 from api.database import Base
 
@@ -36,3 +37,4 @@ class Account(Base):
         nullable=True,
         doc="(optional) Last four digits of the IBAN to help identification",
     )
+    transactions = relationship("Transaction")
