@@ -42,7 +42,7 @@ def create_balance_entry(
     derive from creating, updating or deleting a transaction entry.
 
     Also used to create new balance entries that cancel a previous' amount. This technique is
-    prefered for the sake of keeping the order and work in a non-destructive manner. Instead of
+    preferred for the sake of keeping the order and work in a non-destructive manner. Instead of
     modifying existing rows (chances are they are not flagged as <is_current> anymore) from
     the entries history and losing the running total.
 
@@ -88,6 +88,18 @@ def create_balance_entry(
         transaction_id=transaction_id,
     )
     db.add(balance_model)
+
+
+def delete_balance_entries(db: Session, transaction_id: int) -> None:
+    """
+    Auxiliary function to delete all Balance entries associated with a specific Transaction
+    entry.
+
+    :param db: (Session) SQLAlchemy ORM session.
+    :param transaction_id: (int) ID of the Transaction entry.
+    :returns: None
+    """
+    db.query(Balance).filter(Balance.transaction_id == transaction_id).delete()
 
 
 def get_time_based_current(db: Session, account_id: int, _set: bool = False) -> Balance:
