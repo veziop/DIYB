@@ -378,18 +378,22 @@ async def update_transaction(
             == previous_balance_model.id
         ):
             delete_balance_entries(db=db, transaction_id=id)
-            get_time_based_current(db, transaction_model.account_id, _set=True)
+            get_time_based_current(db=db, account_id=transaction_model.account_id, _set=True)
         else:
             # Delete the previous transaction's balance entry/ies
             delete_balance_entries(db=db, transaction_id=id)
-        # Create a new balance for the new account
-        create_balance_entry(
-            db=db,
-            transaction_id=id,
-            account_id=transaction_request.account_id,
-            amount_difference=transaction_request.amount,
-        )
-
+        # Create new balance entry if amount has not changed so to guarantee that a balance
+        # entry is created
+        if not amount_changed:
+            create_balance_entry(
+                db=db,
+                transaction_id=id,
+                account_id=transaction_request.account_id,
+                amount_difference=transaction_request.amount,
+                transaction_amount=transaction_request.amount,
+            )
+        # Overwrite the amount_difference so to reflect the new entry's amount
+        amount_difference = transaction_request.amount
     # Modify the existing data
     transaction_model.payee = transaction_request.payee
     transaction_model.transaction_date = transaction_request.transaction_date
@@ -430,6 +434,7 @@ async def partially_update_transaction(
     :param id: (int) ID of the transaction entry.
     """
     # TODO design a way to undo balance(s) entries if the ACCOUNT id is modified
+    # TODO investigate bug when updating only the <category_id> the account running total is affected
     # Collect attributes to modify
     update_data = transaction_partial_request.model_dump(exclude_unset=True)
     # Validate the requested IDs
