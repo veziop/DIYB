@@ -26,10 +26,10 @@ class Account(Base):
         default="no description",
         doc="User defined description of the account entry",
     )
-    is_current = Column(
+    is_checking = Column(
         Boolean,
         default=False,
-        doc="Default current account for each user (aka checkings account)",
+        doc="Default checking account for each user (aka current account)",
     )
     iban_tail = Column(
         String(4),

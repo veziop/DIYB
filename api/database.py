@@ -4,6 +4,7 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for everything database/engine/sessions related.
 """
+
 from contextlib import contextmanager
 from typing import Annotated
 

@@ -32,7 +32,7 @@ class AccountResponse(BaseModel):
     id: int
     name: str
     description: str
-    is_current: bool
+    is_checking: bool
     iban_tail: str | None
     running_total: float | None
 
@@ -56,16 +56,16 @@ class AccountTransferRequest(BaseModel):
         return value
 
 
-def create_current_account():
-    """Create the 'current' account as the default account"""
+def create_checking_account() -> None:
+    """Create the 'checking' account as the default account"""
     with sql_session() as db:
         accounts = db.query(Account).count()
         if accounts:
             return
-        current = Account(
-            name="current", description="default account", is_current=True, iban_tail=None
+        checking = Account(
+            name="checking", description="default account", is_checking=True, iban_tail=None
         )
-        db.add(current)
+        db.add(checking)
 
 
 @router.get(
@@ -85,7 +85,7 @@ async def read_all_accounts(db: db_dependency):
             "id": account.id,
             "name": account.name,
             "description": account.description,
-            "is_current": account.is_current,
+            "is_checking": account.is_checking,
             "iban_tail": account.iban_tail if account.iban_tail else None,
             "running_total": getattr(
                 db.query(Balance)
@@ -144,7 +144,7 @@ async def get_account(db: db_dependency, id: int = Path(gt=0)):
         "id": account_model.id,
         "name": account_model.name,
         "description": account_model.description,
-        "is_current": account_model.is_current,
+        "is_checking": account_model.is_checking,
         "iban_tail": account_model.iban_tail,
         "running_total": getattr(
             db.query(Balance)
@@ -224,9 +224,9 @@ async def delete_account(db: db_dependency, id: int = Path(gt=0)):
         raise HTTPException(
             status_code=403, detail="Cannot delete last account entry in the database"
         )
-    # Protect the "current" account from deletion
-    if account_model.is_current:
-        raise HTTPException(status_code=403, detail="Cannot delete the 'current' account")
+    # Protect the "checking" account from deletion
+    if account_model.is_checking:
+        raise HTTPException(status_code=403, detail="Cannot delete the 'checking' account")
     # Protect accounts with funds (possitive running totals)
     if getattr(
         db.query(Balance)

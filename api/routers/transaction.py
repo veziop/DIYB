@@ -273,6 +273,7 @@ async def update_transaction(
     :param id: (int) ID of the transaction entry.
     """
     # TODO design a way to undo balance(s) entries if the ACCOUNT id is modified
+
     # Validate the requested IDs
     validation = validate_entries_in_db(
         db=db,
