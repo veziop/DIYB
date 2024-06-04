@@ -17,9 +17,14 @@ from starlette import status
 
 from api.database import db_dependency
 from api.models.account import Account
+from api.models.balance import Balance
 from api.models.category import Category
 from api.models.transaction import Transaction
-from api.routers.balance import create_balance_entry
+from api.routers.balance import (
+    create_balance_entry,
+    delete_balance_entries,
+    get_time_based_current,
+)
 from api.routers.category import update_category_amount
 from api.utils.tools import validate_entries_in_db
 
@@ -143,7 +148,7 @@ def create_new_transaction_entry(
         )
     # Add the model to the database
     db.add(transaction_model)
-    # Flush the session so to get access to the id before the entry is commited
+    # Flush the session so to get access to the id before the entry is committed
     db.flush()
     # Update the category entry's amount (if not a transfer between accounts)
     if transaction_model.category_id is not None and not transaction_model.is_transfer:
@@ -272,8 +277,6 @@ async def update_transaction(
         entry.
     :param id: (int) ID of the transaction entry.
     """
-    # TODO design a way to undo balance(s) entries if the ACCOUNT id is modified
-
     # Validate the requested IDs
     validation = validate_entries_in_db(
         db=db,
@@ -287,12 +290,16 @@ async def update_transaction(
             {
                 "model": Account,
                 "id_value": transaction_request.account_id,
-                "return_model": False,
+                "return_model": True,
             },
         ],
     )
     # Collect the transaction and category models from the validation
-    transaction_model, category_model = validation["Transaction"], validation["Category"]
+    transaction_model, category_model, account_model = (
+        validation["Transaction"],
+        validation["Category"],
+        validation["Account"],
+    )
     # If money outflow, halt if the category is the 'stage' category
     if transaction_request.amount < 0 and transaction_request.category_id == 1:
         raise HTTPException(
@@ -319,6 +326,70 @@ async def update_transaction(
             category_id=category_model.id,
             amount=transaction_request.amount,
         )
+    # Detect a change in the <account_id>
+    account_changed = account_model.id != transaction_model.account_id
+    if account_changed:
+        # Halt if operation results in any negative account amount
+        previous_account_total = (
+            db.query(Balance)
+            .join(Transaction)
+            .filter(
+                Balance.is_current,
+                Transaction.account_id == transaction_model.account_id,
+            )
+            .first()
+            .running_total
+        )
+        new_account_total = getattr(
+            db.query(Balance)
+            .join(Transaction)
+            .filter(
+                Balance.is_current,
+                Transaction.account_id == transaction_request.account_id,
+            )
+            .first(),
+            "running_total",
+            0,
+        )
+        previous_balance_model = (
+            db.query(Balance)
+            .join(Transaction)
+            .filter(
+                Transaction.id == transaction_model.id,
+                Transaction.account_id == transaction_model.account_id,
+            )
+            .order_by(Balance.entry_datetime.desc())
+            .first()
+        )
+        # Key question is: by undoing the transaction or creating a new one would we end up with
+        # negative account amounts?
+        if (
+            previous_account_total + transaction_model.amount < 0
+            or new_account_total + transaction_request.amount < 0
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Previous or new account's running total would become negative",
+            )
+        # If the previous balance model was flagged as <is_current>, flag the previous Balance
+        # entry (table-wide) according to the datetime
+        if (
+            get_time_based_current(db, transaction_model.account_id).id
+            == previous_balance_model.id
+        ):
+            delete_balance_entries(db=db, transaction_id=id)
+            get_time_based_current(db, transaction_model.account_id, _set=True)
+        else:
+            # Delete the previous transaction's balance entry/ies
+            delete_balance_entries(db=db, transaction_id=id)
+        # Create a new balance for the new account
+        create_balance_entry(
+            db=db,
+            transaction_id=id,
+            account_id=transaction_request.account_id,
+            amount_difference=transaction_request.amount,
+        )
+
     # Modify the existing data
     transaction_model.payee = transaction_request.payee
     transaction_model.transaction_date = transaction_request.transaction_date
