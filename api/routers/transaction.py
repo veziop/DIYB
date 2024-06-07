@@ -433,7 +433,6 @@ async def partially_update_transaction(
         entry.
     :param id: (int) ID of the transaction entry.
     """
-    # TODO design a way to undo balance(s) entries if the ACCOUNT id is modified
     # TODO investigate bug when updating only the <category_id> the account running total is affected
     # Collect attributes to modify
     update_data = transaction_partial_request.model_dump(exclude_unset=True)
@@ -446,7 +445,7 @@ async def partially_update_transaction(
                 {
                     "model": Account,
                     "id_value": update_data["account_id"],
-                    "return_model": False,
+                    "return_model": True,
                 }
                 if update_data.get("account_id")
                 else None
@@ -462,8 +461,8 @@ async def partially_update_transaction(
             ),
         ],
     )
-    # Collect the transaction model from the validation
-    transaction_model = validations["Transaction"]
+    # Collect the transaction and account model from the validation
+    transaction_model, account_model = validations["Transaction"], validations.get("Account")
     # If no new category was requested, fetch the transaction's category
     category_model = validations.get(
         "Category",
@@ -477,7 +476,9 @@ async def partially_update_transaction(
             status_code=403, detail="Cannot have money outflow from 'stage' category"
         )
     # Detect changes to the amount
-    amount_changed = "amount" in update_data
+    amount_changed = (
+        "amount" in update_data and update_data["amount"] != transaction_model.amount
+    )
     amount_difference = update_data.get("amount", 0) - transaction_model.amount
     # Abort if the result of the operation is a negative category assigned_amount
     if amount_changed and category_model.assigned_amount + amount_difference < 0:
@@ -500,6 +501,76 @@ async def partially_update_transaction(
             category_id=update_data["category_id"],
             amount=update_data.get("amount", transaction_model.amount),
         )
+    # Detect a change in the <account_id>
+    account_changed = account_model and account_model.id != transaction_model.account_id
+    if account_changed:
+        # Halt if operation results in any negative account amount
+        previous_account_total = (
+            db.query(Balance)
+            .join(Transaction)
+            .filter(
+                Balance.is_current,
+                Transaction.account_id == transaction_model.account_id,
+            )
+            .first()
+            .running_total
+        )
+        new_account_total = getattr(
+            db.query(Balance)
+            .join(Transaction)
+            .filter(
+                Balance.is_current,
+                Transaction.account_id == update_data["account_id"],
+            )
+            .first(),
+            "running_total",
+            0,
+        )
+        previous_balance_model = (
+            db.query(Balance)
+            .join(Transaction)
+            .filter(
+                Transaction.id == transaction_model.id,
+                Transaction.account_id == transaction_model.account_id,
+            )
+            .order_by(Balance.entry_datetime.desc())
+            .first()
+        )
+        # Key question is: by undoing the transaction or creating a new one would we end up with
+        # negative account amounts?
+        if (
+            previous_account_total + transaction_model.amount < 0
+            or (amount_changed and new_account_total + update_data["amount"] < 0)
+            or (not amount_changed and new_account_total + transaction_model.amount < 0)
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Previous or new account's running total would become negative",
+            )
+        # If the previous balance model was flagged as <is_current>, flag the previous Balance
+        # entry (table-wide) according to the datetime
+        if (
+            get_time_based_current(db, transaction_model.account_id).id
+            == previous_balance_model.id
+        ):
+            delete_balance_entries(db=db, transaction_id=id)
+            get_time_based_current(db=db, account_id=transaction_model.account_id, _set=True)
+        else:
+            # Delete the previous transaction's balance entry/ies
+            delete_balance_entries(db=db, transaction_id=id)
+        # Create new balance entry if amount has not changed so to guarantee that a balance
+        # entry is created
+        if not amount_changed:
+            create_balance_entry(
+                db=db,
+                transaction_id=id,
+                account_id=update_data["account_id"],
+                amount_difference=transaction_model.amount,
+                transaction_amount=transaction_model.amount,
+            )
+        # Overwrite the amount_difference so to reflect the new entry's amount
+        else:
+            amount_difference = update_data["amount"]
     # Update the existing model with the new data
     transaction_model.last_update_datetime = datetime.now().replace(microsecond=0)
     for attribute, value in update_data.items():
