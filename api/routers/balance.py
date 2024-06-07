@@ -120,7 +120,7 @@ def get_time_based_current(db: Session, account_id: int, _set: bool = False) -> 
         .first()
     )
     # Optionally set the flag
-    if _set:
+    if current_balance and _set:
         current_balance.is_current = True
         db.add(current_balance)
     return current_balance
