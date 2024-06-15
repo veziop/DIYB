@@ -111,44 +111,18 @@ async def get_category(db: db_dependency, id: int = Path(gt=0)):
     )["Category"]
 
 
-@router.put("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-async def update_category(
-    db: db_dependency,
-    category_request: CategoryRequest,
-    id: int = Path(gt=0),
-):
-    """
-    Endpoint to modify an existing category entry from the database.
-
-    :param db: (db_dependency) SQLAlchemy ORM session.
-    :param category_request: (CategoryRequest) data to be used to update the category
-        entry.
-    :param id: (int) ID of the category entry.
-    """
-    # Fetch the model
-    category_model = validate_entries_in_db(
-        db=db,
-        entries=[{"model": Category, "id_value": id, "return_model": True}],
-    )["Category"]
-    # Modify the existing data
-    category_model.title = category_request.title
-    category_model.description = category_request.description
-    # Confirm the changes
-    db.add(category_model)
-
-
 @router.patch("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def partially_update_category(
     db: db_dependency,
-    new_data: CategoryPartialRequest,
+    category_partial_request: CategoryPartialRequest,
     id: int = Path(gt=0),
 ):
     """
     Endpoint to partially modify an existing category entry from the database.
 
     :param db: (db_dependency) SQLAlchemy ORM session.
-    :param new_data: (CategoryPartialRequest) data to be used to update the category
-        entry.
+    :param category_partial_request: (CategoryPartialRequest) data to be used to update the
+        category entry.
     :param id: (int) ID of the category entry.
     """
     # Fetch the model
@@ -157,7 +131,7 @@ async def partially_update_category(
         entries=[{"model": Category, "id_value": id, "return_model": True}],
     )["Category"]
     # Collect attributes to modify
-    update_data = new_data.model_dump(exclude_unset=True)
+    update_data = category_partial_request.model_dump(exclude_unset=True)
     # Update the model with the new data
     for attribute, value in update_data.items():
         setattr(category_model, attribute, value)
