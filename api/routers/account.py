@@ -157,40 +157,16 @@ async def get_account(db: db_dependency, id: int = Path(gt=0)):
     }
 
 
-@router.put("/{id}", status_code=status.HTTP_200_OK)
-async def update_account(
-    db: db_dependency, account_request: AccountRequest, id: int = Path(gt=0)
-):
-    """
-    Endpoint to modify an existing account entry from the database.
-
-    :param db: (db_dependency) SQLAlchemy ORM session.
-    :param account_request: (AccountRequest) data to be used to update the account entry.
-    :param id: (int) ID of the account entry.
-    """
-    # Fetch the model
-    account_model = validate_entries_in_db(
-        db=db,
-        entries=[{"model": Account, "id_value": id, "return_model": True}],
-    )["Account"]
-    # Modify the existing data
-    account_model.name = account_request.name
-    account_model.description = account_request.description
-    if account_request.iban_tail:
-        account_model.iban_tail = account_request.iban_tail
-    # Confirm the changes
-    db.add(account_model)
-
-
 @router.patch("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def partially_update_account(
-    db: db_dependency, new_data: AccountPartialRequest, id: int = Path(gt=0)
+    db: db_dependency, account_partial_request: AccountPartialRequest, id: int = Path(gt=0)
 ):
     """
     Endpoint to partially modify an existing account entry from the database.
 
     :param db: (db_dependency) SQLAlchemy ORM session.
-    :param new_data: (AccountPartialRequest) data to be used to update the account entry.
+    :param account_partial_request: (AccountPartialRequest) data to be used to update the
+        account entry.
     :param id: (int) ID of the category entry.
     """
     # Fetch the model
@@ -199,7 +175,7 @@ async def partially_update_account(
         entries=[{"model": Account, "id_value": id, "return_model": True}],
     )["Account"]
     # Collect attributes to modify
-    update_data = new_data.model_dump(exclude_unset=True)
+    update_data = account_partial_request.model_dump(exclude_unset=True)
     # Update the model with the new data
     for attribute, value in update_data.items():
         setattr(account_model, attribute, value)
@@ -227,7 +203,7 @@ async def delete_account(db: db_dependency, id: int = Path(gt=0)):
     # Protect the "checking" account from deletion
     if account_model.is_checking:
         raise HTTPException(status_code=403, detail="Cannot delete the 'checking' account")
-    # Protect accounts with funds (possitive running totals)
+    # Protect accounts with funds (positive running totals)
     if getattr(
         db.query(Balance)
         .join(Transaction)
