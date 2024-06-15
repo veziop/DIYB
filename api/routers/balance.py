@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from starlette import status
 
 from api.database import db_dependency
+from api.models.account import Account
 from api.models.balance import Balance
 from api.models.transaction import Transaction
 
@@ -102,23 +103,25 @@ def delete_balance_entries(db: Session, transaction_id: int) -> None:
     db.query(Balance).filter(Balance.transaction_id == transaction_id).delete()
 
 
-def get_time_based_current(db: Session, account_id: int, _set: bool = False) -> Balance:
+def get_time_based_current(db: Session, account_id: int = False, _set: bool = False) -> Balance:
     """
     Auxiliary function (in the case where no row has the <is_current> flag) to retrieve the
     running total based on the most current <entry_datetime> date and time.
 
     :param db: (Session) SQLAlchemy ORM session.
+    :param account_id: (int) optional; Account ID to determine its current Balance row. If not
+        provided it will determine the "checking" account's Balance row.
     :param _set: (bool) optional; if True overwrite the <is_current> flag.
     :returns: (Balance) entry that is deemed as most recent.
     """
-    # Determine latest balance entry by date/time
-    current_balance = (
-        db.query(Balance)
-        .join(Transaction)
-        .filter(Transaction.account_id == account_id)
-        .order_by(Balance.entry_datetime.desc())
-        .first()
-    )
+    # Build the query
+    query = db.query(Balance).join(Transaction)
+    if account_id:
+        query = query.filter(Transaction.account_id == account_id)
+    else:
+        query = query.join(Account).filter(Account.is_checking)
+    # Run the query
+    current_balance = query.order_by(Balance.entry_datetime.desc()).first()
     # Optionally set the flag
     if current_balance and _set:
         current_balance.is_current = True
@@ -132,7 +135,7 @@ async def get_current_balance(db: db_dependency, all_data: bool = False) -> Deci
     Fetch the current account balance by using the "is_current" flag. Optionally return the
     whole balance entry data instead of the running total value.
 
-    Note: will only look into the 'current' account, default account ID of 1.
+    Note: will only look into the 'checking' account
 
     :param db: (db_dependency) SQLAlchemy ORM session.
     :param all_data: (bool) Optionally return the complete balance entry instead of the scalar.
@@ -141,7 +144,8 @@ async def get_current_balance(db: db_dependency, all_data: bool = False) -> Deci
     current_balance = (
         db.query(Balance)
         .join(Transaction)
-        .filter(Balance.is_current, Transaction.account_id == 1)
+        .join(Account)
+        .filter(Balance.is_current, Account.is_checking)
         .first()
     )
     # Determine latest balance entry by date/time if no entry is found
