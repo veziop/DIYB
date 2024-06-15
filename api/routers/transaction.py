@@ -277,6 +277,7 @@ async def update_transaction(
         entry.
     :param id: (int) ID of the transaction entry.
     """
+    # TODO design a way to undo balance(s) entries if the ACCOUNT id is modified TEST HALTING; CAUSING NEGATIVES IN EITHER ACC
     # Validate the requested IDs
     validation = validate_entries_in_db(
         db=db,
@@ -480,16 +481,18 @@ async def partially_update_transaction(
         "amount" in update_data and update_data["amount"] != transaction_model.amount
     )
     amount_difference = update_data.get("amount", 0) - transaction_model.amount
-    # Abort if the result of the operation is a negative category assigned_amount
-    if amount_changed and category_model.assigned_amount + amount_difference < 0:
-        raise HTTPException(
-            status_code=400, detail="Category assigned amount would become negative"
-        )
     # Detect a change in the <category_id>
     category_changed = (
         update_data.get("category_id")
         and update_data["category_id"] != transaction_model.category_id
     )
+    # Detect a change in the <account_id>
+    account_changed = account_model and account_model.id != transaction_model.account_id
+    # Abort if the result of the operation is a negative category assigned_amount
+    if amount_changed and category_model.assigned_amount + amount_difference < 0:
+        raise HTTPException(
+            status_code=400, detail="Category assigned amount would become negative"
+        )
     if category_changed:
         # If category changed, undo the previous category's amount
         update_category_amount(
@@ -501,21 +504,24 @@ async def partially_update_transaction(
             category_id=update_data["category_id"],
             amount=update_data.get("amount", transaction_model.amount),
         )
-    # Detect a change in the <account_id>
-    account_changed = account_model and account_model.id != transaction_model.account_id
+    # Abort if the result of the operation is a negative account <running_total>
+    origin_account_total = (
+        db.query(Balance)
+        .join(Transaction)
+        .filter(
+            Balance.is_current,
+            Transaction.account_id == transaction_model.account_id,
+        )
+        .first()
+        .running_total
+    )
+    if not account_changed and amount_changed and origin_account_total + amount_difference < 0:
+        raise HTTPException(
+            status_code=400, detail="Account running total would become negative"
+        )
     if account_changed:
         # Halt if operation results in any negative account amount
-        previous_account_total = (
-            db.query(Balance)
-            .join(Transaction)
-            .filter(
-                Balance.is_current,
-                Transaction.account_id == transaction_model.account_id,
-            )
-            .first()
-            .running_total
-        )
-        new_account_total = getattr(
+        destination_account_total = getattr(
             db.query(Balance)
             .join(Transaction)
             .filter(
@@ -538,11 +544,29 @@ async def partially_update_transaction(
         )
         # Key question is: by undoing the transaction or creating a new one would we end up with
         # negative account amounts?
-        if (
-            previous_account_total + transaction_model.amount < 0
-            or (amount_changed and new_account_total + update_data["amount"] < 0)
-            or (not amount_changed and new_account_total + transaction_model.amount < 0)
-        ):
+        negative_accounts = [
+            (
+                not amount_changed
+                and transaction_model.amount > 0
+                and origin_account_total - transaction_model.amount < 0
+            ),
+            (
+                not amount_changed
+                and transaction_model.amount < 0
+                and destination_account_total + transaction_model.amount < 0
+            ),
+            (
+                amount_changed
+                and update_data["amount"] > 0
+                and origin_account_total - update_data["amount"] < 0
+            ),
+            (
+                amount_changed
+                and update_data["amount"] < 0
+                and destination_account_total + update_data["amount"] < 0
+            ),
+        ]
+        if any(negative_accounts):
             raise HTTPException(
                 status_code=400,
                 detail="Previous or new account's running total would become negative",
