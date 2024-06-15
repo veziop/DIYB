@@ -277,7 +277,6 @@ async def partially_update_transaction(
         the transaction entry.
     :param id: (int) ID of the transaction entry.
     """
-    # TODO investigate bug when updating only the <category_id> the account running total is affected
     # Collect attributes to modify
     update_data = transaction_partial_request.model_dump(exclude_unset=True)
     # Validate the requested IDs
