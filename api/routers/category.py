@@ -31,6 +31,7 @@ class CategoryResponse(BaseModel):
     id: int
     title: str
     description: str
+    is_stage: bool
     assigned_amount: float
 
 
@@ -44,7 +45,7 @@ class MoveRequest(BaseModel):
     amount: Decimal = Field(gt=0, decimal_places=2)
 
 
-def create_staging_category() -> None:
+def create_stage_category() -> None:
     """Create the main category from which to assign to all others."""
     with sql_session() as db:
         categories = db.query(Category).count()
@@ -53,6 +54,7 @@ def create_staging_category() -> None:
         stage_model = Category(
             title="stage",
             description="stage category to assign to all other categories",
+            is_stage=True,
         )
         db.add(stage_model)
 
@@ -156,7 +158,7 @@ async def delete_category(
         entries=[{"model": Category, "id_value": id, "return_model": True}],
     )["Category"]
     # Protect the stage category from deletion
-    if category_model.id == 1:
+    if category_model.is_stage:
         raise HTTPException(status_code=405, detail="Cannot delete the stage category")
     # Halt if the category has an assigned amount
     if category_model.assigned_amount:

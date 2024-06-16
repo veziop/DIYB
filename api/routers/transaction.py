@@ -138,11 +138,16 @@ def create_new_transaction_entry(
             )
     # Create the transaction model
     transaction_model = Transaction(**transaction_data)
+    # Fetch the stage category
+    stage_category_model = db.query(Category).filter(Category.is_stage).first()
     # If money inflow, overwrite the default 'stage' category
     if transaction_model.amount > 0 and not transaction_model.is_transfer:
         transaction_model.category_id = 1
     # If money outflow, halt if the category is the 'stage' category
-    if transaction_model.amount < 0 and transaction_model.category_id == 1:
+    if (
+        transaction_model.amount < 0
+        and transaction_model.category_id == stage_category_model.id
+    ):
         raise HTTPException(
             status_code=403, detail="Cannot have money outflow from 'stage' category"
         )
@@ -313,7 +318,7 @@ async def partially_update_transaction(
     )
     # If money outflow, halt if the category is the 'stage' category
     if (update_data.get("amount", 0) < 0 or transaction_model.amount < 0) and (
-        update_data.get("category_id", 0) == 1 or transaction_model.category_id == 1
+        update_data.get("category_id", 0) == 1 or category_model.is_stage
     ):
         raise HTTPException(
             status_code=403, detail="Cannot have money outflow from 'stage' category"

@@ -12,7 +12,7 @@ from api.database import engine
 from api.routers.account import create_checking_account
 from api.routers.account import router as account_router
 from api.routers.balance import router as balance_router
-from api.routers.category import create_staging_category
+from api.routers.category import create_stage_category
 from api.routers.category import router as category_router
 from api.routers.transaction import router as transaction_router
 
@@ -35,4 +35,4 @@ models.Base.metadata.create_all(bind=engine)
 
 # Populate tables with defaults
 create_checking_account()
-create_staging_category()
+create_stage_category()

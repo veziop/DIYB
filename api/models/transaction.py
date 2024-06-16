@@ -50,7 +50,7 @@ class Transaction(Base):
         Boolean,
         default=False,
         doc=(
-            "Flag those transactions that record transfering between accounts; "
+            "Flag those transactions that record transferring between accounts; "
             "if True, <category_id> should be null"
         ),
     )
