@@ -4,9 +4,11 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definition of the category model.
 """
+
 from decimal import Decimal
 
-from sqlalchemy import Column, Integer, Numeric, String
+from sqlalchemy import Boolean, Column, Integer, Numeric, String
+from sqlalchemy.orm import relationship
 
 from api.database import Base
 
@@ -31,3 +33,5 @@ class Category(Base):
         default=Decimal(0),
         doc="Remaining amount assigned to this category entry",
     )
+    is_stage = Column(Boolean, default=False, doc='Flag to mark the "stage" category')
+    transactions = relationship("Transaction")
