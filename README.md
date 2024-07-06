@@ -5,10 +5,10 @@ REST API project with the aim keeping a budget. Keep track of your monthly expen
 
 --------
 This project is built with the following technologies:
-+ Python 3.10
++ Python 3.11
 + FastAPI
 + sqlite3
-+ SQLAlchemy
++ SQLAlchemy 2.0
 
 ----
 ### Entity Relation Diagram
