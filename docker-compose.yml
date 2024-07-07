@@ -1,0 +1,11 @@
+version: '3'
+services:
+  fastapi:
+    container_name: diyb-api-dev
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    volumes:
+      - /home/user/diyb_data:/code/data
