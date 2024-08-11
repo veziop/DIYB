@@ -7,7 +7,7 @@ repos:
         args: [
           '--check',
           '--line-length', '96',
-          '--target-version', 'py31'
+          '--target-version', 'py311'
           ]
 
   - repo: https://github.com/pycqa/isort
