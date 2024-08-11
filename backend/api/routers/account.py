@@ -8,10 +8,6 @@ description: Module for the definitions of routes related to the Account model.
 from datetime import date
 from decimal import Decimal
 
-from fastapi import APIRouter, HTTPException, Path
-from pydantic import BaseModel, Field, validator
-from starlette import status
-
 from api.database import db_dependency, sql_session
 from api.models.account import Account
 from api.models.balance import Balance

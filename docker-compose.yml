@@ -1,11 +1,26 @@
 version: '3'
+
 services:
   fastapi:
-    container_name: diyb-api-dev
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     ports:
       - "8080:80"
     volumes:
-      - /home/user/diyb_data:/code/data
+      - sqlite_data:/data
+    environment:
+      DATABASE_URL: "sqlite:////data/database.db"
+    depends_on:
+      - db
+    
+  db:
+    build:
+      context: ./data
+      dockerfile: Dockerfile
+    volumes:
+      - sqlite_data:/data
+
+volumes:
+  sqlite_data:
+    driver: local

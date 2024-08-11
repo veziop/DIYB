@@ -160,7 +160,7 @@ cython_debug/
 #.idea/
 
 # sqlite in-memory databases
-*.db
+#*.db
 
 # other directories
 .idea

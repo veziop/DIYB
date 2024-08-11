@@ -5,5 +5,5 @@ target-version = ['py310']
 [tool.isort]
 profile = 'black'
 line_length = 96
-src_paths = ['api']
+src_paths = ['backend']
 py_version = '310'

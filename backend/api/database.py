@@ -5,6 +5,7 @@ email: valenp97@gmail.com
 description: Module for everything database/engine/sessions related.
 """
 
+import os
 from contextlib import contextmanager
 from typing import Annotated
 
@@ -12,7 +13,7 @@ from fastapi import Depends, HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, declarative_base, scoped_session, sessionmaker
 
-DATABASE_URL = "sqlite:///./data/diyb.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///data/sqlite/database.db")
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
