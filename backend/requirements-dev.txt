@@ -1,0 +1,4 @@
+# libraries only used during active development and not by the API
+black==23.7.0
+isort==5.12.0
+pre-commit==3.5.0

@@ -1,0 +1,34 @@
+services:
+  fastapi:
+    container_name: diyb-backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    volumes:
+      - sqlite_data:/data
+    environment:
+      DATABASE_URL: "sqlite:////data/database.db"
+    cpus: '0.50'
+    mem_limit: 200M
+    pids_limit: 2
+    restart: unless-stopped
+    depends_on:
+      - db
+
+  db:
+    container_name: diyb-sqlite
+    build:
+      context: ./data
+      dockerfile: Dockerfile
+    volumes:
+      - sqlite_data:/data
+    cpus: '0.50'
+    mem_limit: 50M
+    pids_limit: 1
+    restart: unless-stopped
+
+volumes:
+  sqlite_data:
+    driver: local
