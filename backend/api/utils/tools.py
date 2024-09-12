@@ -5,9 +5,14 @@ email: valenp97@gmail.com
 description: Module for the definitions of reusable utility functions.
 """
 
+from datetime import date, datetime
+
 from fastapi import HTTPException
 from pydantic import BaseModel
-from sqlalchemy.orm import Query, Session
+from pytz import timezone
+from sqlalchemy.orm import Session
+
+from api.config import settings
 
 
 def validate_entries_in_db(db: Session, entries: list) -> dict:
@@ -40,3 +45,13 @@ def validate_entries_in_db(db: Session, entries: list) -> dict:
                     status_code=404, detail=f"{entry['model'].__name__} not found"
                 )
     return results
+
+
+def today_factory() -> date:
+    """
+    Function that computes today's date accurate to the timezone set in the config.py
+
+    :returns: (date) Today's date
+    """
+    tz = timezone(settings.timezone)
+    return datetime.now(tz).date()
