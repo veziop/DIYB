@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Path
-from pydantic import BaseModel, Field, condecimal, validator
+from pydantic import BaseModel, Field, condecimal, field_validator
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from starlette import status
@@ -26,7 +26,7 @@ from api.routers.balance import (
     get_time_based_current,
 )
 from api.routers.category import update_category_amount
-from api.utils.tools import validate_entries_in_db
+from api.utils.tools import today_factory, validate_entries_in_db
 
 router = APIRouter(prefix="/transaction", tags=["transaction"])
 
@@ -37,20 +37,20 @@ class TransactionRequest(BaseModel):
     """
 
     payee: str = Field(min_length=1)
-    transaction_date: date = Field(default=date.today())
+    transaction_date: date = Field(default_factory=today_factory)
     description: str = Field(max_length=100)
     amount: Decimal = Field(decimal_places=2)
     category_id: int | None = Field(default=None, gt=0)
     account_id: int = Field(default=1, gt=0)
 
-    @validator("transaction_date")
+    @field_validator("transaction_date")
     def validate_not_future_date(cls, value: date):
-        """Validate that the date set as the transaction date is not set in the future"""
-        if value > date.today():
+        """Validate that the the transaction date is not set in the future"""
+        if value > today_factory():
             raise ValueError("Date cannot be in the future")
         return value
 
-    @validator("amount")
+    @field_validator("amount")
     def validate_amount_not_zero(cls, value: Decimal):
         """Validate that the amount has some positive or negative value, but not zero"""
         if value == Decimal(0):
@@ -66,7 +66,7 @@ class TransactionPartialRequest(TransactionRequest):
     """
 
     payee: str | None = Field(default=None, min_length=1)
-    transaction_date: date | None = Field(default=date.today())
+    transaction_date: date | None = Field(default_factory=today_factory)
     description: str | None = Field(default=None, max_length=100)
     amount: Annotated[condecimal(decimal_places=2) | None, Field(default=None)]
     category_id: int | None = Field(default=None, gt=0)
