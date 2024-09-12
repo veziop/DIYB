@@ -9,7 +9,7 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Path
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from starlette import status
 
 from api.database import db_dependency, sql_session
@@ -48,7 +48,7 @@ class AccountTransferRequest(BaseModel):
     amount: Decimal = Field(decimal_places=2, gt=0)
     description: str = Field(max_length=100)
 
-    @validator("transfer_date")
+    @field_validator("transfer_date")
     def validate_not_future_date(cls, value: date):
         """Validate that the date set as the transfer date is not set in the future"""
         if value > date.today():
