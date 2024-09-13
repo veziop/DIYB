@@ -12,6 +12,7 @@ from sqlalchemy.orm import relationship
 
 from api.database import Base
 from api.models.category import Category
+from api.utils.tools import now_factory
 
 
 class Transaction(Base):
@@ -26,12 +27,12 @@ class Transaction(Base):
     payee = Column(String(100), doc="Name/title of the payee")
     creation_datetime = Column(
         DateTime,
-        default=lambda _: datetime.now().replace(microsecond=0),
+        default=lambda _: now_factory,
         doc="Date/time of creation of the transaction entry in the database",
     )
     last_update_datetime = Column(
         DateTime,
-        default=lambda _: datetime.now().replace(microsecond=0),
+        default=lambda _: now_factory,
         doc="Date/time of the last update operation of the transaction entry",
     )
     transaction_date = Column(

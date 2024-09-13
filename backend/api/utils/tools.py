@@ -8,7 +8,6 @@ description: Module for the definitions of reusable utility functions.
 from datetime import date, datetime
 
 from fastapi import HTTPException
-from pydantic import BaseModel
 from pytz import timezone
 from sqlalchemy.orm import Session
 
@@ -47,11 +46,20 @@ def validate_entries_in_db(db: Session, entries: list) -> dict:
     return results
 
 
+def now_factory() -> datetime:
+    """
+    Function that computes the current datetime accurate to the timezone set in the config.py
+
+    :returns: (datetime) Current datetime
+    """
+    tz = timezone(settings.timezone)
+    return datetime.now(tz).replace(microsecond=0)
+
+
 def today_factory() -> date:
     """
     Function that computes today's date accurate to the timezone set in the config.py
 
     :returns: (date) Today's date
     """
-    tz = timezone(settings.timezone)
-    return datetime.now(tz).date()
+    return now_factory().date()

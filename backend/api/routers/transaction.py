@@ -26,7 +26,7 @@ from api.routers.balance import (
     get_time_based_current,
 )
 from api.routers.category import update_category_amount
-from api.utils.tools import today_factory, validate_entries_in_db
+from api.utils.tools import now_factory, today_factory, validate_entries_in_db
 
 router = APIRouter(prefix="/transaction", tags=["transaction"])
 
@@ -104,7 +104,7 @@ def create_new_transaction_entry(
     """
     # Determine when is now
     if datetime_now is None:
-        datetime_now = datetime.now().replace(microsecond=0)
+        datetime_now = now_factory()
         # Discard microseconds from the time data
         transaction_data["creation_datetime"] = datetime_now
         transaction_data["last_update_datetime"] = datetime_now
@@ -190,7 +190,7 @@ def create_transfer_transactions(
     :param amount: (Decimal) amount to transfer between the accounts.
     :param description: (str) description of the transfer, duplicated in both Transactions.
     """
-    datetime_now = datetime.now().replace(microsecond=0)
+    datetime_now = now_factory()
     # Origin account's transaction
     transaction_from_data = {
         # Label the payee as the other account's name to help the user with identifying
@@ -443,7 +443,7 @@ async def partially_update_transaction(
         else:
             amount_difference = update_data["amount"]
     # Update the existing model with the new data
-    transaction_model.last_update_datetime = datetime.now().replace(microsecond=0)
+    transaction_model.last_update_datetime = now_factory()
     for attribute, value in update_data.items():
         setattr(transaction_model, attribute, value)
     # Update the data in database

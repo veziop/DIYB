@@ -17,6 +17,7 @@ from api.database import db_dependency
 from api.models.account import Account
 from api.models.balance import Balance
 from api.models.transaction import Transaction
+from api.utils.tools import now_factory
 
 router = APIRouter(prefix="/balance", tags=["balance"])
 
@@ -80,7 +81,7 @@ def create_balance_entry(
         )
     # Create the balance model
     balance_model = Balance(
-        entry_datetime=datetime.now().replace(microsecond=0),
+        entry_datetime=now_factory(),
         transaction_amount_record=(
             amount_difference if not transaction_amount else transaction_amount
         ),
