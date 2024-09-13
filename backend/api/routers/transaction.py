@@ -228,7 +228,7 @@ async def read_all_transactions(db: db_dependency):
 
     :param db: (db_dependency) SQLAlchemy ORM session.
     """
-    return db.query(Transaction).all()
+    return db.query(Transaction).order_by(Transaction.id.desc()).all()
 
 
 @router.get("/all/sum", status_code=status.HTTP_200_OK)
