@@ -31,8 +31,11 @@ app.include_router(balance_router)
 app.include_router(category_router)
 app.include_router(account_router)
 
-models.Base.metadata.create_all(bind=engine)
 
-# Populate tables with defaults
-create_checking_account()
-create_stage_category()
+if __name__ == "__main__":
+    # FIXME pytest working, debug mode working, docker compose not working in this DB instantiation
+    models.Base.metadata.create_all(bind=engine)
+
+    # Populate tables with defaults
+    create_checking_account()
+    create_stage_category()

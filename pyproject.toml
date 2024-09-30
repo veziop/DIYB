@@ -7,3 +7,7 @@ profile = 'black'
 line_length = 96
 src_paths = ['backend']
 py_version = '311'
+
+[tool.pytest.ini_options]
+testpaths = ["/api/tests"]
+python_paths = ["/api"]
