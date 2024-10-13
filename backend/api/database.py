@@ -40,7 +40,7 @@ db_dependency = Annotated[Session, Depends(get_db)]
 @contextmanager
 def sql_session():
     """
-    Custom SQL session in a context manager that conviniently commits and closes.
+    Custom SQL session in a context manager that conveniently commits and closes.
     """
     db_session = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
     try:

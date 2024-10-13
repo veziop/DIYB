@@ -4,6 +4,7 @@ author: Valentin Piombo
 email: valenp97@gmail.com
 description: Module for the definition of the balance model.
 """
+
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric
 
 from api.database import Base
