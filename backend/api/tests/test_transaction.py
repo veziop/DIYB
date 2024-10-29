@@ -53,3 +53,11 @@ def test_fetch_transaction_by_id(
     response = client.get("/transaction/1")
     assert response.status_code == 200
     assert response.json().get("amount") == amount
+
+
+def test_update_transaction(client, db_session, create_transaction):
+    create_transaction(payee="test", amount=100, category_id=2, account_id=1)
+    new_amount = randint(50, 60)
+    response = client.patch("/transaction/1", json={"amount": new_amount})
+    assert response.status_code == 204
+    assert db_session.query(Transaction).get(1).amount == new_amount

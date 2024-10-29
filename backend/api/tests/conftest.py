@@ -66,7 +66,7 @@ def setup_database(db_session):
     db_session.query(Transaction).delete()
     db_session.query(Category).delete()
     db_session.query(Account).delete()
-    db_session.commit()
+    db_session.query(Balance).delete()
 
     # Create default accounts
     default_accounts = [
@@ -74,7 +74,6 @@ def setup_database(db_session):
         Account(name="test savings", description="Default savings account", is_checking=False),
     ]
     db_session.add_all(default_accounts)
-    db_session.commit()
 
     # Create default categories
     default_categories = [
@@ -100,6 +99,22 @@ def create_transaction(db_session):
             account_id=kwargs.get("account_id", 1),
         )
         db_session.add(transaction)
+        db_session.flush()
+        db_session.query(Balance).update({Balance.is_current: False})
+        current_balance = db_session.query(Balance).filter(Balance.is_current).first()
+        running_total = current_balance.running_total if current_balance else None
+        balance = Balance(
+            entry_datetime=date(2024, 1, 1),
+            transaction_amount_record=kwargs.get("amount", 100),
+            running_total=(
+                running_total + kwargs.get("amount", 100)
+                if running_total
+                else kwargs.get("amount", 100)
+            ),
+            is_current=True,
+            transaction_id=transaction.id,
+        )
+        db_session.add(balance)
         db_session.commit()
         return transaction
 
@@ -107,7 +122,7 @@ def create_transaction(db_session):
 
 
 @fixture(params=[1, 3, 10])
-def create_multiple_transactions(request, db_session, create_transaction):
+def create_multiple_transactions(request, create_transaction):
     transactions = []
     for i in range(request.param):
         transaction = create_transaction(
