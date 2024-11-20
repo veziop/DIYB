@@ -60,80 +60,10 @@ def client(db_session):
     return client
 
 
-@fixture(autouse=True)
-def setup_database(db_session):
-    # Empty all tables
+# Fixture to empty the database tables before each test
+@fixture(scope="function", autouse=True)
+def empty_database_tables(db_session):
     db_session.query(Transaction).delete()
     db_session.query(Category).delete()
     db_session.query(Account).delete()
     db_session.query(Balance).delete()
-
-    # Create default accounts
-    default_accounts = [
-        Account(name="test checking", description="Default checking account", is_checking=True),
-        Account(name="test savings", description="Default savings account", is_checking=False),
-    ]
-    db_session.add_all(default_accounts)
-
-    # Create default categories
-    default_categories = [
-        Category(title="stage", description="test stage", is_stage=True, assigned_amount=0),
-        Category(title="restaurant", description="test food", assigned_amount=100),
-        Category(title="transportation", description="test transportation", assigned_amount=50),
-    ]
-    db_session.add_all(default_categories)
-    db_session.commit()
-
-
-@fixture()
-def create_transaction(db_session):
-    def _create_transaction(**kwargs):
-        transaction = Transaction(
-            payee=kwargs.get("payee", "test payee"),
-            creation_datetime=kwargs.get("creation_datetime", date.today()),
-            last_update_datetime=kwargs.get("last_update_datetime", date.today()),
-            transaction_date=kwargs.get("transaction_date", date.today()),
-            description=kwargs.get("description", "test description"),
-            amount=kwargs.get("amount", 100),
-            category_id=kwargs.get("category_id", 1),
-            account_id=kwargs.get("account_id", 1),
-        )
-        db_session.add(transaction)
-        db_session.flush()
-        db_session.query(Balance).update({Balance.is_current: False})
-        current_balance = db_session.query(Balance).filter(Balance.is_current).first()
-        running_total = current_balance.running_total if current_balance else None
-        balance = Balance(
-            entry_datetime=date(2024, 1, 1),
-            transaction_amount_record=kwargs.get("amount", 100),
-            running_total=(
-                running_total + kwargs.get("amount", 100)
-                if running_total
-                else kwargs.get("amount", 100)
-            ),
-            is_current=True,
-            transaction_id=transaction.id,
-        )
-        db_session.add(balance)
-        db_session.commit()
-        return transaction
-
-    return _create_transaction
-
-
-@fixture(params=[1, 3, 10])
-def create_multiple_transactions(request, create_transaction):
-    transactions = []
-    for i in range(request.param):
-        transaction = create_transaction(
-            payee=f"test payee {i}",
-            creation_datetime=date.today(),
-            last_update_datetime=date.today(),
-            transaction_date=date.today(),
-            description="test description {i}",
-            amount=Decimal(f"-{randint(1, 5)}.{randint(1, 100)}"),
-            category_id=randint(1, 3),
-            account_id=1,
-        )
-        transactions.append(transaction)
-    return transactions
