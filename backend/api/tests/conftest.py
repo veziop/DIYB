@@ -5,10 +5,6 @@ email: valenp97@gmail.com
 description: Configuration of the PyTest suite.
 """
 
-from datetime import date
-from decimal import Decimal
-from random import randint
-
 from fastapi.testclient import TestClient
 from pytest import fixture
 from sqlalchemy import create_engine
@@ -21,16 +17,18 @@ from api.models import Account, Balance, Category, Transaction
 client = TestClient(app)
 
 SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///./test.db"
-engine = create_engine(SQLALCHEMY_TEST_DATABASE_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+testing_engine = create_engine(
+    SQLALCHEMY_TEST_DATABASE_URL, connect_args={"check_same_thread": False}
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=testing_engine)
 
 
 # Fixture to create the database schema before any tests run
 @fixture(scope="session", autouse=True)
 def setup_database():
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=testing_engine)
     yield
-    Base.metadata.drop_all(bind=engine)
+    Base.metadata.drop_all(bind=testing_engine)
 
 
 # Fixture to override the `get_db` dependency
