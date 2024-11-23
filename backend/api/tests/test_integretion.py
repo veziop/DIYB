@@ -178,8 +178,8 @@ def test_integration_2(client, db_session):
     running_total = client.get("/balance/current")
     assert response1.status_code == 204
     assert response2.status_code == 204
-    assert db_session.query(Transaction).filter_by(id=3).first().amount == Decimal("-15.20")
-    assert db_session.query(Transaction).filter_by(id=2).first().amount == Decimal("80.00")
+    assert db_session.get(Transaction, 3).amount == Decimal("-15.20")
+    assert db_session.get(Transaction, 2).amount == Decimal("80.00")
     assert running_total.status_code == 200
     assert running_total.json() == 114.8
 
@@ -237,12 +237,10 @@ def test_integration_3(client, db_session):
     assert response5.status_code == 403
 
     client.patch("/category/1", json={"assigned_amount": 100})
-    assert (
-        db_session.query(Category).filter_by(id=1).first().assigned_amount != Decimal("100.00"),
-    )
+    assert db_session.get(Category, 1).assigned_amount != Decimal("100.00")
 
     client.patch("/category/2", json={"description": "new description"})
-    assert db_session.query(Category).filter_by(id=2).first().description != "test dine"
+    assert db_session.get(Category, 2).description != "test dine"
 
     response7 = client.delete("/category/1")  # intentional
     assert response7.status_code == 405
@@ -258,6 +256,72 @@ def test_integration_3(client, db_session):
         "account_id": 1,
     }
     client.post("/transaction", json=transaction)
-    assert (
-        db_session.query(Category).filter_by(id=2).first().assigned_amount == Decimal("57.22"),
+    assert db_session.get(Category, 2).assigned_amount == Decimal("57.22")
+
+
+def test_integration_4(client, db_session):
+    """
+    TODO
+    """
+    account = Account(
+        name="test checking", description="Default checking account", is_checking=True
     )
+    db_session.add(account)
+    db_session.commit()
+
+    categories = [
+        Category(title="stage", description="test stage", is_stage=True, assigned_amount=350),
+    ]
+    db_session.add_all(categories)
+    db_session.commit()
+
+    transaction = Transaction(
+        payee="test paycheck1",
+        creation_datetime=date.today() - datetime.timedelta(days=1),
+        last_update_datetime=datetime.datetime.now() - datetime.timedelta(days=1),
+        transaction_date=date.today() - datetime.timedelta(days=1),
+        description="",
+        amount=350,
+        category_id=1,
+        account_id=1,
+    )
+    db_session.add(transaction)
+    db_session.commit()
+
+    balance = Balance(
+        entry_datetime=date.today(),
+        transaction_amount_record=350,
+        running_total=350,
+        is_current=True,
+        transaction_id=1,
+    )
+    db_session.add(balance)
+    db_session.commit()
+
+    response1 = client.post(
+        "/account", json={"name": "savings", "is_checking": False, "iban_tail": "1234"}
+    )
+    assert response1.status_code == 201
+    assert db_session.query(Account).count() == 2
+    response2 = client.post(
+        "/account/1/transfer/2",
+        json={
+            "transfer_date": str(date.today()),
+            "description": "test transfer",
+            "amount": 251.73,
+        },
+    )
+    assert response2.status_code == 204
+    assert db_session.query(Transaction).count() == 3
+    assert db_session.get(Transaction, 2).is_transfer
+    assert db_session.get(Transaction, 3).is_transfer
+    client.patch("/account/2", json={"running_total": 1_000_000})  # intentional
+    response3 = client.get("/account/2")
+    assert response3.json() == {
+        "id": 2,
+        "name": "savings",
+        "description": "",
+        "is_checking": False,
+        "iban_tail": "1234",
+        "running_total": 251.73,
+    }
