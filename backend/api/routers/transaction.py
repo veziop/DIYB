@@ -491,6 +491,21 @@ async def delete_transaction(
     transaction_model = validate_entries_in_db(
         db=db, entries=[{"model": Transaction, "id_value": id, "return_model": True}]
     )["Transaction"]
+    # Halt if the deletion would result in a negative account amount
+    if (
+        db.query(Balance)
+        .join(Transaction)
+        .filter(
+            Balance.is_current,
+            Transaction.account_id == transaction_model.account_id,
+        )
+        .first()
+        .running_total
+    ) - transaction_model.amount < 0:
+        raise HTTPException(
+            status_code=403,
+            detail="Account running total would become negative after deletion",
+        )
     # Undo this transaction's balance influence
     create_balance_entry(
         db=db,
