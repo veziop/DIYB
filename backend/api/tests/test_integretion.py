@@ -14,7 +14,17 @@ from api.models import Account, Balance, Category, Transaction
 
 def test_integration_1(client, db_session):
     """
-    TODO
+    Test that focuses on the initial setup of the api by creating Accounts, Categories and
+    Transaction.
+
+    1. (act) Create 2 accounts
+    2. (assert) Check that 2 accounts have been created
+    3. (act) Create 4 categories
+    4. (assert) Check that 4 categories have been created
+    5. (act) Create 2 transactions, and 2 balances
+    6. (assert) Check that 2 transactions and 2 balances have been created
+    7. (act) Attempt to create a transaction with an invalid transaction_date
+    8. (assert) Check that the transaction was not created
     """
     accounts = [
         {
@@ -91,7 +101,19 @@ def test_integration_1(client, db_session):
 
 def test_integration_2(client, db_session):
     """
-    TODO
+    Integration test that focuses on Transactions and Balances.
+
+    1. (arrange) Create 1 account
+    2. (arrange) Create 2 categories
+    3. (arrange) Create 1 transaction
+    4. (arrange) Create 1 balance
+    5. (act) Create 3 transactions, one of which has an invalid category_id (stage)
+    6. (assert) Check that the last transaction was not created
+    7. (assert) Check that a total of 3 transactions have been created
+    8. (assert) Check the balance of the account add up correctly
+    9. (act) Update the amounts of the last 2 transactions
+    10. (assert) Check that the last transactions were updated
+    11. (assert) Check that the balance of the account add up correctly
     """
     account = Account(
         name="test checking", description="Default checking account", is_checking=True
@@ -172,9 +194,9 @@ def test_integration_2(client, db_session):
         db_session.query(Balance).filter(Balance.is_current).first().running_total
     ) == Decimal("139.49")
 
-    transaction_updates = [{"amount": -15.20}, {"amount": 80}]
-    response1 = client.patch("/transaction/3", json=transaction_updates[0])
-    response2 = client.patch("/transaction/2", json=transaction_updates[1])
+    transaction_update1, transaction_update2 = {"amount": -15.20}, {"amount": 80}
+    response1 = client.patch("/transaction/3", json=transaction_update1)
+    response2 = client.patch("/transaction/2", json=transaction_update2)
     running_total = client.get("/balance/current")
     assert response1.status_code == 204
     assert response2.status_code == 204
@@ -186,7 +208,25 @@ def test_integration_2(client, db_session):
 
 def test_integration_3(client, db_session):
     """
-    TODO
+    Integration test that focuses on Categories.
+
+    1. (arrange) Create 1 account
+    2. (arrange) Create 1 stage category
+    3. (arrange) Create 1 transaction
+    4. (arrange) Create 1 balance
+    5. (act) Create 2 categories
+    6. (assert) Check that the 2 categories have been created
+    7. (act) Move amounts from the stage category to the other categories, one move invalid
+    8. (assert) Check that all requests to move were accepted (cannot directly query the
+        "assigned_amount" field of each category as it is computed)
+    9. (act) Attempt to directly modify a category's "assign_amount"
+    10. (assert) Check that the category was not modified
+    11. (act) Modify a category's description
+    12. (assert) Check that the category's description was modified
+    13. (act) Attempt to delete the stage category
+    14. (assert) Check that the stage category was not deleted
+    15. (act) Create a new transaction
+    16. (assert) Check that the appropriate category's "assigned_amount" was updated
     """
     account = Account(
         name="test checking", description="Default checking account", is_checking=True
@@ -236,14 +276,15 @@ def test_integration_3(client, db_session):
     assert response4.status_code == 200
     assert response5.status_code == 403
 
-    client.patch("/category/1", json={"assigned_amount": 100})
-    assert db_session.get(Category, 1).assigned_amount != Decimal("100.00")
+    client.patch("/category/1", json={"assigned_amount": 855})
+    assert db_session.get(Category, 1).assigned_amount != Decimal("855.00")
 
     client.patch("/category/2", json={"description": "new description"})
     assert db_session.get(Category, 2).description != "test dine"
 
     response7 = client.delete("/category/1")  # intentional
     assert response7.status_code == 405
+    assert db_session.get(Category, 1)
 
     transaction = {
         "payee": "test store 2",
@@ -261,7 +302,18 @@ def test_integration_3(client, db_session):
 
 def test_integration_4(client, db_session):
     """
-    TODO
+    Integration test that focuses on Accounts.
+
+    1. (arrange) Create 1 account
+    2. (arrange) Create 1 category
+    3. (arrange) Create 1 transaction
+    4. (arrange) Create 1 balance
+    5. (act) Create 1 account
+    6. (assert) Check that an account has been created
+    7. (act) Create 1 transfer transaction between the 2 accounts
+    8. (assert) Check that a transfer transactions have been created
+    9. (act) Attempt to directly modify the account's "running_total"
+    10. (assert) Check that the account was not modified
     """
     account = Account(
         name="test checking", description="Default checking account", is_checking=True
@@ -269,10 +321,10 @@ def test_integration_4(client, db_session):
     db_session.add(account)
     db_session.commit()
 
-    categories = [
-        Category(title="stage", description="test stage", is_stage=True, assigned_amount=350),
-    ]
-    db_session.add_all(categories)
+    category = Category(
+        title="stage", description="test stage", is_stage=True, assigned_amount=350
+    )
+    db_session.add(category)
     db_session.commit()
 
     transaction = Transaction(
