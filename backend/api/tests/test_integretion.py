@@ -115,6 +115,11 @@ def test_integration_2(client, db_session):
     10. (assert) Check that the transaction was updated
     11. (act)  Update the amount and account of the a transaction
     11. (assert) Check that the balance of the accounts add up correctly
+    12. (act) Attempt to delete the transaction
+    13. (assert) Check that the transaction was not deleted (account would become negative)
+    14. (act) Delete a different transaction
+    15. (assert) Check that the transaction was deleted
+    16. (assert) Check that the balance of the accounts add up correctly
     """
     accounts = (
         Account(name="test checking", description="Default checking account", is_checking=True),
@@ -208,6 +213,12 @@ def test_integration_2(client, db_session):
     running_total = client.get("/balance/current")
     assert running_total.status_code == 200
     assert running_total.json() == 34.8
+    response3 = client.delete("/transaction/1")
+    assert response3.status_code == 403
+    response4 = client.delete("/transaction/3")
+    assert response4.status_code == 204
+    assert len(client.get("/transaction/all").json()) == 2
+    assert client.get("/balance/current").json() == 50
 
 
 def test_integration_3(client, db_session):
