@@ -330,7 +330,7 @@ async def partially_update_transaction(
     amount_difference = update_data.get("amount", 0) - transaction_model.amount
     # Detect a change in the <category_id>
     category_changed = (
-        update_data.get("category_id")
+        update_data.get("category_id", False)
         and update_data["category_id"] != transaction_model.category_id
     )
     # Detect a change in the <account_id>
@@ -352,7 +352,7 @@ async def partially_update_transaction(
             amount=update_data.get("amount", transaction_model.amount),
         )
     # Abort if the result of the operation is a negative account <running_total>
-    origin_account_total = (
+    origin_acc_current_balance_model = (
         db.query(Balance)
         .join(Transaction)
         .filter(
@@ -360,9 +360,12 @@ async def partially_update_transaction(
             Transaction.account_id == transaction_model.account_id,
         )
         .first()
-        .running_total
     )
-    if not account_changed and amount_changed and origin_account_total + amount_difference < 0:
+    if (
+        not account_changed
+        and amount_changed
+        and origin_acc_current_balance_model.running_total + amount_difference < 0
+    ):
         raise HTTPException(
             status_code=400, detail="Account running total would become negative"
         )
@@ -395,7 +398,8 @@ async def partially_update_transaction(
             (
                 not amount_changed
                 and transaction_model.amount > 0
-                and origin_account_total - transaction_model.amount < 0
+                and origin_acc_current_balance_model.running_total - transaction_model.amount
+                < 0
             ),
             (
                 not amount_changed
@@ -405,7 +409,7 @@ async def partially_update_transaction(
             (
                 amount_changed
                 and update_data["amount"] > 0
-                and origin_account_total - update_data["amount"] < 0
+                and origin_acc_current_balance_model.running_total - update_data["amount"] < 0
             ),
             (
                 amount_changed
@@ -439,9 +443,17 @@ async def partially_update_transaction(
                 amount_difference=transaction_model.amount,
                 transaction_amount=transaction_model.amount,
             )
-        # Overwrite the amount_difference so to reflect the new entry's amount
         else:
+            # Update the original account's amount
+            create_balance_entry(
+                db=db,
+                transaction_id=origin_acc_current_balance_model.transaction_id,
+                account_id=transaction_model.account_id,
+                amount_difference=-transaction_model.amount,
+            )
+            # Overwrite the amount_difference so to reflect the new entry's amount
             amount_difference = update_data["amount"]
+
     # Update the existing model with the new data
     transaction_model.last_update_datetime = now_factory()
     for attribute, value in update_data.items():
