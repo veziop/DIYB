@@ -111,9 +111,10 @@ def test_integration_2(client, db_session):
     6. (assert) Check that the last transaction was not created
     7. (assert) Check that a total of 3 transactions have been created
     8. (assert) Check the balance of the account add up correctly
-    9. (act) Update the amounts of the last 2 transactions
-    10. (assert) Check that the last transactions were updated
-    11. (assert) Check that the balance of the account add up correctly
+    9. (act) Update the amount of the a transaction
+    10. (assert) Check that the transaction was updated
+    11. (act)  Update the amount and account of the a transaction
+    11. (assert) Check that the balance of the accounts add up correctly
     """
     accounts = (
         Account(name="test checking", description="Default checking account", is_checking=True),
@@ -317,6 +318,13 @@ def test_integration_4(client, db_session):
     8. (assert) Check that a transfer transactions have been created
     9. (act) Attempt to directly modify the account's "running_total"
     10. (assert) Check that the account was not modified
+    11. (act) Update the description of the new account
+    12. (assert) Check that the account's description was modified
+    13. (act) Attempt to delete the account
+    14. (assert) Check that the account was not deleted
+    15. (act) Create a new transaction that empties the savings account
+    16. (act) Delete the account
+    17. (assert) Check that the account was deleted
     """
     account = Account(
         name="test checking", description="Default checking account", is_checking=True
@@ -324,10 +332,11 @@ def test_integration_4(client, db_session):
     db_session.add(account)
     db_session.commit()
 
-    category = Category(
-        title="stage", description="test stage", is_stage=True, assigned_amount=350
+    categories = (
+        Category(title="stage", description="test stage", is_stage=True, assigned_amount=0),
+        Category(title="other", description="test other", is_stage=False, assigned_amount=350),
     )
-    db_session.add(category)
+    db_session.add_all(categories)
     db_session.commit()
 
     transaction = Transaction(
@@ -357,7 +366,7 @@ def test_integration_4(client, db_session):
         "/account", json={"name": "savings", "is_checking": False, "iban_tail": "1234"}
     )
     assert response1.status_code == 201
-    assert db_session.query(Account).count() == 2
+    assert len(client.get("/account/all").json()) == 2
     response2 = client.post(
         "/account/1/transfer/2",
         json={
@@ -380,3 +389,24 @@ def test_integration_4(client, db_session):
         "iban_tail": "1234",
         "running_total": 251.73,
     }
+    response4 = client.patch("/account/2", json={"description": "new description"})
+    assert response4.status_code == 204
+    assert db_session.get(Account, 2).description == "new description"
+    response5 = client.delete("/account/2")  # intentional
+    assert response5.status_code == 403
+    client.post(
+        "/transaction",
+        json={
+            "payee": "test store 2",
+            "creation_datetime": str(date.today()),
+            "last_update_datetime": str(date.today()),
+            "transaction_date": str(date.today()),
+            "description": "test description",
+            "amount": -251.73,
+            "category_id": 2,
+            "account_id": 2,
+        },
+    )
+    response6 = client.delete("/account/2")
+    assert response6.status_code == 204
+    assert len(client.get("/account/all").json()) == 1
