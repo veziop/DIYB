@@ -115,18 +115,19 @@ def test_integration_2(client, db_session):
     10. (assert) Check that the last transactions were updated
     11. (assert) Check that the balance of the account add up correctly
     """
-    account = Account(
-        name="test checking", description="Default checking account", is_checking=True
+    accounts = (
+        Account(name="test checking", description="Default checking account", is_checking=True),
+        Account(name="test savings", description="Default savings account", is_checking=False),
     )
-    db_session.add(account)
+    db_session.add_all(accounts)
     db_session.commit()
 
-    categories = [
+    categories = (
         Category(title="stage", description="test stage", is_stage=True, assigned_amount=0),
         Category(
             title="misc", description="test miscellaneous", is_stage=False, assigned_amount=50
         ),
-    ]
+    )
     db_session.add_all(categories)
     db_session.commit()
 
@@ -194,16 +195,18 @@ def test_integration_2(client, db_session):
         db_session.query(Balance).filter(Balance.is_current).first().running_total
     ) == Decimal("139.49")
 
-    transaction_update1, transaction_update2 = {"amount": -15.20}, {"amount": 80}
+    transaction_update1 = {"amount": -15.20}
     response1 = client.patch("/transaction/3", json=transaction_update1)
-    response2 = client.patch("/transaction/2", json=transaction_update2)
-    running_total = client.get("/balance/current")
     assert response1.status_code == 204
-    assert response2.status_code == 204
     assert db_session.get(Transaction, 3).amount == Decimal("-15.20")
+    assert client.get("/balance/current").json() == 134.80
+    transaction_update2 = {"account_id": 2, "amount": 80}
+    response2 = client.patch("/transaction/2", json=transaction_update2)
+    assert response2.status_code == 204
     assert db_session.get(Transaction, 2).amount == Decimal("80.00")
+    running_total = client.get("/balance/current")
     assert running_total.status_code == 200
-    assert running_total.json() == 114.8
+    assert running_total.json() == 34.8
 
 
 def test_integration_3(client, db_session):
