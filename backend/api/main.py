@@ -33,7 +33,6 @@ app.include_router(account_router)
 
 
 if __name__ == "__main__":
-    # FIXME pytest working, debug mode working, docker compose not working in this DB instantiation
     models.Base.metadata.create_all(bind=engine)
 
     # Populate tables with defaults
