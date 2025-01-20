@@ -1,0 +1,67 @@
+"""
+filename: conftest.py
+author: Valentin Piombo
+email: valenp97@gmail.com
+description: Configuration of the PyTest suite.
+"""
+
+from fastapi.testclient import TestClient
+from pytest import fixture
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from api.database import Base, get_db
+from api.main import app
+from api.models import Account, Balance, Category, Transaction
+
+client = TestClient(app)
+
+SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///./test.db"
+testing_engine = create_engine(
+    SQLALCHEMY_TEST_DATABASE_URL, connect_args={"check_same_thread": False}
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=testing_engine)
+
+
+# Fixture to create the database schema before any tests run
+@fixture(scope="session", autouse=True)
+def setup_database():
+    Base.metadata.create_all(bind=testing_engine)
+    yield
+    Base.metadata.drop_all(bind=testing_engine)
+
+
+# Fixture to override the `get_db` dependency
+@fixture()
+def db_session():
+    # Create a new database session for a test
+    db = TestingSessionLocal()
+    try:
+        yield db
+        db.commit()
+    finally:
+        db.close()
+
+
+# Override FastAPI's dependency to use the test database session
+@fixture()
+def client(db_session):
+    def override_get_db():
+        try:
+            yield db_session
+            db_session.commit()
+        finally:
+            db_session.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    client = TestClient(app)
+    return client
+
+
+# Fixture to empty the database tables before each test
+@fixture(scope="function", autouse=True)
+def empty_database_tables(db_session):
+    db_session.query(Transaction).delete()
+    db_session.query(Category).delete()
+    db_session.query(Account).delete()
+    db_session.query(Balance).delete()

@@ -23,7 +23,7 @@ router = APIRouter(prefix="/balance", tags=["balance"])
 
 
 class BalanceResponse(BaseModel):
-    id: int = Field(min=0)
+    id: int = Field(gt=0)
     entry_datetime: datetime
     transaction_amount_record: float
     running_total: float
