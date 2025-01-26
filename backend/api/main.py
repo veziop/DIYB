@@ -18,7 +18,7 @@ from api.routers.transaction import router as transaction_router
 
 app = FastAPI(
     title="DIYB",
-    version="0.1.0",
+    version="0.1.1",
     summary="Do It Yourself Budget - a personal finance organizer",
     contact={
         "author": "Valentin Piombo",
@@ -31,8 +31,10 @@ app.include_router(balance_router)
 app.include_router(category_router)
 app.include_router(account_router)
 
-models.Base.metadata.create_all(bind=engine)
 
-# Populate tables with defaults
-create_checking_account()
-create_stage_category()
+if __name__ == "__main__":
+    models.Base.metadata.create_all(bind=engine)
+
+    # Populate tables with defaults
+    create_checking_account()
+    create_stage_category()
