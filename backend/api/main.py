@@ -18,7 +18,7 @@ from api.routers.transaction import router as transaction_router
 
 app = FastAPI(
     title="DIYB",
-    version="0.1.0",
+    version="0.1.1",
     summary="Do It Yourself Budget - a personal finance organizer",
     contact={
         "author": "Valentin Piombo",
